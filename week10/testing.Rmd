@@ -1,0 +1,116 @@
+---
+title: "new things"
+author: "Esther Helga"
+date: "2025-04-03"
+output: html_document
+---
+
+```{r}
+
+library(qqman)
+library(ggplot2)
+
+```
+
+```{r}
+
+d <- read.table('gwa.assoc.fisher', head=T)
+manhattan(d)
+
+```
+
+```{r}
+
+qq(d$P)
+
+```
+```{r}
+
+# Compute chi-squared values
+chisq <- qchisq(d$P, df=1, lower.tail = FALSE)
+
+# Calculate inflation factor (lambda)
+lambda <- median(chisq) / qchisq(0.5, df=1)
+lambda
+
+```
+
+```{r}
+
+p <- 6.189e-07 #found earlier using plink
+
+# Step 1: Convert p to chi-squared
+q <- qchisq(p, df=1, lower.tail = FALSE)
+
+# Step 2: Adjust for inflation
+q_gc <- q / lambda
+
+# Step 3: Convert adjusted chi-squared back to p-value
+p_gc <- pchisq(q_gc, df=1, lower.tail = FALSE)
+
+# Print the result
+p_gc
+
+```
+```{r}
+
+# Load the data
+pca <- read.table("gwa.eigenvec", header=FALSE)
+
+# Assign column names
+colnames(pca) <- c("FID", "IID", paste0("PC", 1:20))
+
+```
+
+```{r}
+
+
+ggplot(pca, aes(x=PC1, y=PC2)) +
+  geom_point(color="steelblue", size=2) +
+  labs(title="PCA: PC1 vs PC2", x="PC1", y="PC2") +
+  theme_minimal()
+
+
+```
+```{r}
+
+eigenval <- scan("gwa.eigenval")
+
+```
+```{r}
+
+variance_explained_pc1 <- eigenval[1] / sum(eigenval) * 100
+variance_explained_pc1
+
+
+```
+
+```{r}
+
+l <- read.table("plink.assoc.logistic", header=TRUE)
+
+```
+
+```{r}
+
+l_add <- subset(l, TEST == "ADD")
+
+```
+
+```{r}
+
+manhattan(l_add)
+qq(l_add$P)
+
+
+```
+```{r}
+
+chisq <- qchisq(l_add$P, df=1, lower.tail = FALSE)
+
+lambda <- median(chisq) / qchisq(0.5, df=1)
+lambda
+
+
+```
+

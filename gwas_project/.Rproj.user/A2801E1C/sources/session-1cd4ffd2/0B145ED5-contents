@@ -1,0 +1,51 @@
+---
+title: "Untitled"
+author: "Esther Helga"
+date: "2025-05-02"
+output: html_document
+---
+
+```{r}
+
+meta <- read.table("metadata.txt", sep="\t", header=TRUE)
+
+```
+
+```{r}
+
+# Total number of entries
+total_entries <- nrow(meta)
+
+# Number of non-empty entries (assuming empty means NA or "")
+non_empty <- sum(meta$chip != "" & !is.na(meta$chip))
+empty <- total_entries - non_empty
+
+cat("Non-empty entries:", non_empty, "\n")
+cat("Empty entries:", empty, "\n")
+
+
+```
+```{r}
+
+# Frequency table of unique non-empty values
+chip_freq <- table(meta$chip)
+chip_freq <- chip_freq[names(chip_freq) != ""]  # Remove empty string if present
+
+# Display number of unique values and the frequency table
+cat("Number of unique values:", length(chip_freq), "\n")
+print(chip_freq)
+
+
+```
+```{r}
+
+# Frequency table of unique non-empty values
+source_freq <- table(meta$source)
+source_freq <- source_freq[names(source_freq) != ""]  # Remove empty string if present
+
+# Display number of unique values and the frequency table
+cat("Number of unique values:", length(source_freq), "\n")
+print(source_freq)
+
+```
+
