@@ -150,7 +150,7 @@ cd /faststorage/project/populationgenomics/students/estherhelga/GWAS_project/
       --out qc_step1_loose
 
         This sitll filters out over half of our individuals, so our next plan is to try and seperate the chips, do QC on each chip seperately, and then merge the cleaned data.
-        We are essentially penalizing individuals for not having SNPs that were never on their chip — that’s unfair and unnecessary, anmd so trying to seperate them by chip would 
+        We are essentially penalizing individuals for not having SNPs that were never on their chip — that’s unfair and unnecessary, and so trying to seperate them by chip would 
         fix this. 
   
   # 5.2: Metadata exploration
@@ -178,4 +178,145 @@ cd /faststorage/project/populationgenomics/students/estherhelga/GWAS_project/
 
       OmniExpress Plus
 
-    Using the split_by_chip.R on the cluster, and the command Rscript to run it, we create 4 individual chip txt files, that we can then use alongside PLINK to --keep and --remove during the individual QC steps. The .txt files contain the Family ID (FID), and the Individual ID (IID), which in our case are the same. But PLINK needs both to operate the --keep and the --remove. 
+    Using the split_by_chip.R on the cluster, and the command Rscript to run it, we create 4 individual chip txt files, that we can then use alongside PLINK to --keep and --remove during the individual QC steps. The .txt files contain the Family ID (FID), and the Individual ID (IID), which in our case are the same. But PLINK needs both to operate the --keep and the --remove.
+
+    We might also consider doing one more group, which includs the 399 entries that did not report a chip, and do a QC on that group also. This might tell us something. 
+
+  # 5.4: Chip specific genotype data
+
+    Using the following command for each chip group, we extract each subgroups genotyping data:
+      plink --bfile gwas_data \
+      --keep chip_group_<CHIP>.txt \
+      --make-bed \
+      --out chip_<CHIP>
+
+    For the group of unknown chips, which was made at the same time as the other groups were made, we first rename it, before using the same plink command on it:
+
+    mv chip_group_.txt chip_group_unknown.txt
+
+    plink --bfile gwas_data \
+      --keep chip_group_unknown.txt \
+      --make-bed \
+      --out chip_unknown
+
+  # 5.5: Prune the SNP set per chip, sp that each .bed/.bim/.fam triplet only includes the SNPs actually genotyped on that chip.
+    We do this so that each .bed/.bim/.fam triplet only includes SNPs that were actually genotyped on that specific chip.
+    If we don’t do this, Plink will calculate missingness using all SNPs in the merged dataset, including those not present on a given chip, 
+    which artificially inflates the missingness per individual. 
+
+    For each chip, filter out SNPs with >5% missing data (per SNP), and save only the remaining SNPs.
+    This creates chip_HTS_iSelect_HD_snps_filtered.snplist, a list of good-quality SNPs genotyped on this chip:
+
+      plink --bfile chip_HTS_iSelect_HD \
+      --geno 0.05 \
+      --write-snplist \
+      --out chip_HTS_iSelect_HD_snps_filtered
+
+
+    Use the list above to make a new, chip-specific cleaned dataset.
+    This ensures the new dataset only includes variants truly present on this chip, so downstream missingness estimates are accurate:
+
+      plink --bfile chip_HTS_iSelect_HD \
+      --extract chip_HTS_iSelect_HD_snps_filtered.snplist \
+      --make-bed \
+      --out chip_HTS_iSelect_HD_pruned
+
+
+    Run the following command to inspect the number of SNPs retained after pruning:
+
+      wc -l chip_HTS_iSelect_HD_pruned.bim
+
+
+    Calculate the missingness per individual, before then calculating the overall average missingess: 
+    
+      plink --bfile chip_HTS_iSelect_HD_pruned \
+      --missing \
+      --out chip_HTS_iSelect_HD_pruned_missing
+
+      awk '{if(NR>1) print $6}' chip_HTS_iSelect_HD_pruned_missing.imiss | \
+      awk '{sum+=$1} END {print "Average missingness:", sum/NR}'
+
+  # 5.5.1: unknown chip group prune settings:
+   Since this group did not have a reported chip type, we expect greater heterogeneity. These individuals most likely used different chips or came from different companies.  
+   As a result, we also expect higher missingness due to low SNP overlap across individuals. Therefore, we need to **adjust our pruning strategy** to account for this.  
+    
+    We relax the SNP-level missingness threshold from 5% to 20% (`--geno 0.2`) and test whether this retains a reasonable number of variants.
+
+      plink --bfile chip_unknown \
+      --geno 0.2 \
+      --write-snplist \
+      --out chip_unknown_snps_filtered
+
+    Then, we check for SNPs retained, and if they are a reasonable amount, we continue with the PLINK command:
+
+      wc -l chip_unknown_snps_filtered.snplist
+
+      plink --bfile chip_unknown \
+      --extract chip_unknown_snps_filtered.snplist \
+      --make-bed \
+      --out chip_unknown_pruned
+
+
+    Then, we run the missingness calculation as well as the average missingess calc:
+
+      plink --bfile chip_unknown_pruned \
+      --missing \
+      --out chip_unknown_pruned_missing
+
+      awk '{if(NR>1) print $6}' chip_unknown_pruned_missing.imiss | \
+      awk '{sum+=$1} END {print "Average missingness:", sum/NR}'
+
+  # 5.6: Report average missingness for all chip groups.
+    To assess the quality of each chip-specific group, we calculated the average missingness per individual after pruning.
+    Run a command that loops through and reports all the average missingness:
+
+    for file in chip_*_pruned_missing.imiss; do
+      chip=$(echo $file | sed 's/_pruned_missing.imiss//')
+      avg=$(awk '{if(NR>1) print $6}' "$file" | awk '{sum+=$1} END {if(NR>0) print sum/NR; else print "NA"}')
+      printf "%-35s  Average missingness: %.4f\n" "$chip" "$avg"
+    done
+
+    Our output: 
+      chip_HTS_iSelect_HD                  Average missingness: 0.0080
+      chip_Illumina_GSAs                   Average missingness: 0.0242
+      chip_OmniExpress_plus                Average missingness: 0.0155
+      chip_OmniExpress                     Average missingness: 0.0314
+      chip_unknown                         Average missingness: 0.1516
+
+    Then, looking into the normal missiness thresholds, which are:
+
+      | Threshold  | Typical Meaning                                                                                                 |
+      | ---------- | --------------------------------------------------------------------------------------------------------------- |
+      | **< 2–5%** | Excellent — gold standard for most GWAS datasets                                                                |
+      | **5–10%**  | Acceptable for exploratory analysis or if justified                                                             |
+      | **10–20%** | **Tolerable in special cases** — like our unknown chip — with proper documentation and possibly extra filtering |
+      | **>20%**   | Risky — usually excluded unless extremely valuable samples                                                      |
+
+      Our results indicate that all named chip groups meet or exceed best practices, while the unknown group shows elevated missingness (~15%).
+      This is expected due to platform heterogeneity, and we currently retain this group for analysis with caution, noting it may require separate treatment or exclusion in stricter analyses.
+
+
+  # 5.7: Initial individual and SNP filtering for HTS iSelect HD QC:
+
+    We start by running this plink command, while testing different filtering thresholds:
+
+      plink --bfile chip_HTS_iSelect_HD \
+      --allow-no-sex \
+      --mind 0.05 \
+      --geno 0.05 \
+      --maf 0.01 \
+      --make-bed \
+      --out chip_HTS_iSelect_HD_qc1
+
+      | Option           | Meaning                                                                     |
+      | ---------------- | --------------------------------------------------------------------------- |
+      | `--mind 0.05`    | Removes individuals with >5% missing genotypes                              |
+      | `--geno 0.05`    | Removes SNPs with >5% missing data across individuals                       |
+      | `--maf 0.01`     | Removes rare SNPs (MAF < 1%)                                                |
+      | `--allow-no-sex` | Keeps individuals even if their sex is unknown (openSNP has many like this) |
+      | `--make-bed`     | Output new `.bed/.bim/.fam` binary files                                    |
+      | `--out`          | Prefix for output files                                                     |
+
+
+
+
