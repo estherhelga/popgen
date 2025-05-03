@@ -266,6 +266,7 @@ cd /faststorage/project/populationgenomics/students/estherhelga/GWAS_project/
       awk '{if(NR>1) print $6}' chip_unknown_pruned_missing.imiss | \
       awk '{sum+=$1} END {print "Average missingness:", sum/NR}'
 
+
   # 5.6: Report average missingness for all chip groups.
     To assess the quality of each chip-specific group, we calculated the average missingness per individual after pruning.
     Run a command that loops through and reports all the average missingness:
@@ -296,26 +297,11 @@ cd /faststorage/project/populationgenomics/students/estherhelga/GWAS_project/
       This is expected due to platform heterogeneity, and we currently retain this group for analysis with caution, noting it may require separate treatment or exclusion in stricter analyses.
 
 
-  # 5.7: Initial individual and SNP filtering for HTS iSelect HD QC:
+  # 5.7: Heterozygosity and Missingness Outlier Detection
+    This is a multistep process, where we aim to detect sample contamination or failed genotyping. We also want to either flag or remove outliers. 
+  
+  # 5.7.1: Generate Missingness and Heterozygosity Stats (HTS Group)
 
-    We start by running this plink command, while testing different filtering thresholds:
-
-      plink --bfile chip_HTS_iSelect_HD \
-      --allow-no-sex \
-      --mind 0.05 \
-      --geno 0.05 \
-      --maf 0.01 \
-      --make-bed \
-      --out chip_HTS_iSelect_HD_qc1
-
-      | Option           | Meaning                                                                     |
-      | ---------------- | --------------------------------------------------------------------------- |
-      | `--mind 0.05`    | Removes individuals with >5% missing genotypes                              |
-      | `--geno 0.05`    | Removes SNPs with >5% missing data across individuals                       |
-      | `--maf 0.01`     | Removes rare SNPs (MAF < 1%)                                                |
-      | `--allow-no-sex` | Keeps individuals even if their sex is unknown (openSNP has many like this) |
-      | `--make-bed`     | Output new `.bed/.bim/.fam` binary files                                    |
-      | `--out`          | Prefix for output files                                                     |
 
 
 
