@@ -72,12 +72,12 @@ cd /faststorage/project/populationgenomics/students/estherhelga/GWAS_project/
 
 | Scale | Label      | Included Categories                                                                                                                    |
 | ----- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| 0     | Blue       | `blue`, `dark_blue` , `blue-grey`                                                                                                      |
-| 1     | Blue-green | `blue-green`, `blue-green-grey`, `blue-green-gold`, `blue-green_heterochromia`, `blue/green/grey_-_changes_with_lighting_and_clothing` |
-| 2     | Green      | `green`, `green-gray`                                                                                                                  |
-| 3     | Hazel      | `hazel/brown-green`, `hazel_green`, `green_with_brown_freckles`                                                                        |
-| 4     | Brown      | `brown`, `amber-brown`                                                                                                                 |
-| 5     | Dark brown | `dark_brown`, `black`, `red/blood`                                                                                                     |
+| 0     | blue       | `blue`, `dark_blue` , `blue-grey`                                                                                                      |
+| 1     | blue_green | `blue-green`, `blue-green-grey`, `blue-green-gold`, `blue-green_heterochromia`, `blue/green/grey_-_changes_with_lighting_and_clothing` |
+| 2     | green      | `green`, `green-gray`                                                                                                                  |
+| 3     | hazel      | `hazel/brown-green`, `hazel_green`, `green_with_brown_freckles`                                                                        |
+| 4     | brown      | `brown`, `amber-brown`                                                                                                                 |
+| 5     | dark_brown | `dark_brown`, `black`, `red/blood`                                                                                                     |
 
 
 # 4: QC and PLINK info
