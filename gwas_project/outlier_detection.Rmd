@@ -29,8 +29,8 @@ miss <- read.table("chip_HTS_iSelect_HD_qc.imiss", header = TRUE)
 We subtract homozygotes from the total to get number of heterozygous genotypes, then divide by the total to get the proportion of heterozygosity.
 
 Why? In a healthy sample, heterozygosity falls within a fairly narrow range.
-Too high → Possible contamination (e.g., DNA from 2 people)
-Too low → Possible inbreeding or genotyping failure
+Too high b Possible contamination (e.g., DNA from 2 people)
+Too low b Possible inbreeding or genotyping failure
 
 ```{r}
 
@@ -62,9 +62,9 @@ ggplot(qc_data, aes(x = HET_RATE, y = F_MISS)) +
 ```
 
 # formal outlier identification based on +- 3 SD from mean heterozygosity
-Why ±3 standard deviations?
+Why B13 standard deviations?
 
-- In a normal distribution, 99.7% of values fall within ±3 SD of the mean.
+- In a normal distribution, 99.7% of values fall within B13 SD of the mean.
 
 - So any point beyond that is very likely an anomaly, not just natural variation.
 
@@ -116,8 +116,8 @@ miss <- read.table("chip_OmniExpress_qc.imiss", header = TRUE)
 We subtract homozygotes from the total to get number of heterozygous genotypes, then divide by the total to get the proportion of heterozygosity.
 
 Why? In a healthy sample, heterozygosity falls within a fairly narrow range.
-Too high → Possible contamination (e.g., DNA from 2 people)
-Too low → Possible inbreeding or genotyping failure
+Too high b Possible contamination (e.g., DNA from 2 people)
+Too low b Possible inbreeding or genotyping failure
 
 ```{r}
 
@@ -139,7 +139,7 @@ qc_data <- inner_join(miss, het, by = c("FID", "IID"))
 
 ggplot(qc_data, aes(x = HET_RATE, y = F_MISS)) +
   geom_point(alpha = 0.7) +
-  coord_cartesian(ylim = c(0, 0.1)) +  # Zoom into meaningful y-range
+  coord_cartesian(ylim = c(0, 0.055)) +  # Zoom into meaningful y-range
   theme_minimal() +
   labs(title = "OmniExpress: Heterozygosity vs. Missingness",
        x = "Heterozygosity Rate",
@@ -149,9 +149,9 @@ ggplot(qc_data, aes(x = HET_RATE, y = F_MISS)) +
 ```
 
 # formal outlier identification based on +- 3 SD from mean heterozygosity
-Why ±3 standard deviations?
+Why B13 standard deviations?
 
-- In a normal distribution, 99.7% of values fall within ±3 SD of the mean.
+- In a normal distribution, 99.7% of values fall within B13 SD of the mean.
 
 - So any point beyond that is very likely an anomaly, not just natural variation.
 
@@ -202,8 +202,8 @@ miss <- read.table("chip_OmniExpress_plus_qc.imiss", header = TRUE)
 We subtract homozygotes from the total to get number of heterozygous genotypes, then divide by the total to get the proportion of heterozygosity.
 
 Why? In a healthy sample, heterozygosity falls within a fairly narrow range.
-Too high → Possible contamination (e.g., DNA from 2 people)
-Too low → Possible inbreeding or genotyping failure
+Too high b Possible contamination (e.g., DNA from 2 people)
+Too low b Possible inbreeding or genotyping failure
 
 ```{r}
 
@@ -227,11 +227,11 @@ Is this type of clustering normal? It can be. WHy?
 
 1. Different chips can have different SNP content, which influences observed heterozygosity.
 
-- Some chips are enriched for common SNPs → higher heterozygosity
+- Some chips are enriched for common SNPs b higher heterozygosity
 
-- Others (like OmniExpress Plus) may focus more on tagging SNPs or rare variants → lower observed heterozygosity
+- Others (like OmniExpress Plus) may focus more on tagging SNPs or rare variants b lower observed heterozygosity
 
-2. This group might also include more genetically homogeneous individuals, e.g., people from a single ancestry → fewer heterozygous positions.
+2. This group might also include more genetically homogeneous individuals, e.g., people from a single ancestry b fewer heterozygous positions.
 
 ```{r}
 
@@ -248,9 +248,9 @@ ggplot(qc_data, aes(x = HET_RATE, y = F_MISS)) +
 ```
 
 # formal outlier identification based on +- 3 SD from mean heterozygosity
-Why ±3 standard deviations?
+Why B13 standard deviations?
 
-- In a normal distribution, 99.7% of values fall within ±3 SD of the mean.
+- In a normal distribution, 99.7% of values fall within B13 SD of the mean.
 
 - So any point beyond that is very likely an anomaly, not just natural variation.
 
@@ -302,8 +302,8 @@ miss <- read.table("chip_Illumina_GSAs_qc.imiss", header = TRUE)
 We subtract homozygotes from the total to get number of heterozygous genotypes, then divide by the total to get the proportion of heterozygosity.
 
 Why? In a healthy sample, heterozygosity falls within a fairly narrow range.
-Too high → Possible contamination (e.g., DNA from 2 people)
-Too low → Possible inbreeding or genotyping failure
+Too high b Possible contamination (e.g., DNA from 2 people)
+Too low b Possible inbreeding or genotyping failure
 
 ```{r}
 
@@ -325,7 +325,7 @@ qc_data <- inner_join(miss, het, by = c("FID", "IID"))
 
 ggplot(qc_data, aes(x = HET_RATE, y = F_MISS)) +
   geom_point(alpha = 0.7) +
-  coord_cartesian(ylim = c(0, 0.1) , xlim = c(0.15, 0.25)) +  # Zoom into meaningful y-range +
+  coord_cartesian(ylim = c(0, 0.1) , xlim = c(0.175, 0.225)) +  # Zoom into meaningful y-range +
   theme_minimal() +
   labs(title = "Illumina GSAs: Heterozygosity vs. Missingness",
        x = "Heterozygosity Rate",
@@ -335,9 +335,9 @@ ggplot(qc_data, aes(x = HET_RATE, y = F_MISS)) +
 ```
 
 # formal outlier identification based on +- 3 SD from mean heterozygosity
-Why ±3 standard deviations?
+Why B13 standard deviations?
 
-- In a normal distribution, 99.7% of values fall within ±3 SD of the mean.
+- In a normal distribution, 99.7% of values fall within B13 SD of the mean.
 
 - So any point beyond that is very likely an anomaly, not just natural variation.
 
@@ -388,8 +388,8 @@ miss <- read.table("chip_unknown_qc.imiss", header = TRUE)
 We subtract homozygotes from the total to get number of heterozygous genotypes, then divide by the total to get the proportion of heterozygosity.
 
 Why? In a healthy sample, heterozygosity falls within a fairly narrow range.
-Too high → Possible contamination (e.g., DNA from 2 people)
-Too low → Possible inbreeding or genotyping failure
+Too high b Possible contamination (e.g., DNA from 2 people)
+Too low b Possible inbreeding or genotyping failure
 
 ```{r}
 
@@ -421,9 +421,9 @@ ggplot(qc_data, aes(x = HET_RATE, y = F_MISS)) +
 ```
 
 # formal outlier identification based on +- 3 SD from mean heterozygosity
-Why ±3 standard deviations?
+Why B13 standard deviations?
 
-- In a normal distribution, 99.7% of values fall within ±3 SD of the mean.
+- In a normal distribution, 99.7% of values fall within B13 SD of the mean.
 
 - So any point beyond that is very likely an anomaly, not just natural variation.
 

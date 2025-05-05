@@ -1,0 +1,54 @@
+---
+title: "Untitled"
+output: html_document
+date: "2025-05-05"
+---
+
+```{r}
+
+eye <- read.table("eye_color.txt", header = TRUE)
+
+```
+
+```{r}
+
+# Define color mapping
+color_to_scale <- c(
+  "blue" = 0, "dark_blue" = 0, "blue-grey" = 0,
+  "blue-green" = 1, "blue-green-grey" = 1, "blue-green-gold" = 1,
+  "blue-green_heterochromia" = 1, "blue/green/grey_-_changes_with_lighting_and_clothing" = 1,
+  "green" = 2, "green-gray" = 2,
+  "hazel/brown-green" = 3, "hazel_green" = 3, "green_with_brown_freckles" = 3,
+  "brown" = 4, "amber-brown" = 4,
+  "dark_brown" = 5, "black" = 5, "red/blood" = 5
+)
+
+
+```
+
+
+```{r}
+
+eye$Scale <- color_to_scale[eye$color]
+
+scale_labels <- c("blue", "blue_green", "green", "hazel", "brown", "dark_brown")
+eye$Label <- factor(eye$Scale, levels = 0:5, labels = scale_labels)
+
+
+```
+
+```{r}
+
+library(ggplot2)
+
+ggplot(eye, aes(x = Label)) +
+  geom_bar(fill = "steelblue") +
+  labs(title = "Eye Colour Distribution by Literature-based Scale",
+       x = "Colour Group",
+       y = "Count") +
+  theme_minimal()
+
+
+```
+
+

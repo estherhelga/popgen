@@ -25,6 +25,7 @@ cat("Empty entries:", empty, "\n")
 
 
 ```
+
 ```{r}
 
 # Frequency table of unique non-empty values
@@ -37,6 +38,7 @@ print(chip_freq)
 
 
 ```
+
 ```{r}
 
 # Frequency table of unique non-empty values
