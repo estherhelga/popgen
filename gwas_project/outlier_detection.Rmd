@@ -421,9 +421,9 @@ ggplot(qc_data, aes(x = HET_RATE, y = F_MISS)) +
 ```
 
 # formal outlier identification based on +- 3 SD from mean heterozygosity
-Why B13 standard deviations?
+Why +-3 standard deviations?
 
-- In a normal distribution, 99.7% of values fall within B13 SD of the mean.
+- In a normal distribution, 99.7% of values fall within +-3 SD of the mean.
 
 - So any point beyond that is very likely an anomaly, not just natural variation.
 
