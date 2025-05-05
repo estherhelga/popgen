@@ -301,6 +301,37 @@ cd /faststorage/project/populationgenomics/students/estherhelga/GWAS_project/
     This is a multistep process, where we aim to detect sample contamination or failed genotyping. We also want to either flag or remove outliers. 
   
   # 5.7.1: Generate Missingness and Heterozygosity Stats (HTS Group)
+    Now we will use two different PLINK commands, one for finding the missingness per individual and another to find hte heterozygosity per individual. 
+    The two commands will create .imiss and .het files. 
+
+    Individual missingness:
+
+      plink --bfile chip_HTS_iSelect_HD_pruned \
+      --missing \
+      --out chip_HTS_iSelect_HD_qc
+
+    Individual Heterozygosity:
+
+      plink --bfile chip_HTS_iSelect_HD_pruned \
+      --het \
+      --out chip_HTS_iSelect_HD_qc
+
+  # Step 5.7.2: Outlier detection using heterozygosity and missingness
+    The goal here is to identify very high or very low heterozygosity, whcih could be due to contamination or inbreeding,
+    as well as look for high missingness individuals (poor genotyping). I did this manually for all chips, but in hindsight, a workflow would have been a smart solution to automate this process. 
+
+    The plan is to do this in R. Another possibility is using jupyter notebooks, however I feel like the files are an alright size to work on on my local machine.
+
+    Summary of what we did in R and why we did it: 
+
+    | Step                     | What it does                            | Why it matters                                               |
+    | ------------------------ | --------------------------------------- | ------------------------------------------------------------ |
+    | Load `.imiss` and `.het` | Get missingness and heterozygosity info | These are two independent indicators of sample quality       |
+    | Calculate `HET_RATE`     | % heterozygous genotypes per individual | Outliers here could mean contamination or other issues       |
+    | Merge data               | Align individuals across metrics        | Allows joint analysis                                        |
+    | Plot                     | Visual sanity check                     | Spot trends, tight clustering, or spread                     |
+    | ±3 SD rule               | Statistical outlier filter              | Removes samples that deviate significantly from normal range |
+    | Save to file             | Prepares for filtering in Plink         | Enables reproducible sample removal                          |
 
 
 

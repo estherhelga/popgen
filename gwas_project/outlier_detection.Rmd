@@ -1,0 +1,460 @@
+---
+title: "Untitled"
+author: "Esther Helga"
+date: "2025-05-05"
+output: html_document
+---
+
+# libraries
+
+```{r}
+
+library(dplyr)
+library(ggplot2)
+
+```
+
+
+# HTS iSelect chip
+
+```{r}
+
+# Load data
+het <- read.table("chip_HTS_iSelect_HD_qc.het", header = TRUE)
+miss <- read.table("chip_HTS_iSelect_HD_qc.imiss", header = TRUE)
+
+```
+
+# observed het rate per individual.
+We subtract homozygotes from the total to get number of heterozygous genotypes, then divide by the total to get the proportion of heterozygosity.
+
+Why? In a healthy sample, heterozygosity falls within a fairly narrow range.
+Too high → Possible contamination (e.g., DNA from 2 people)
+Too low → Possible inbreeding or genotyping failure
+
+```{r}
+
+het$HET_RATE <- (het$N.NM. - het$O.HOM.) / het$N.NM.
+
+```
+
+# merge het and missingness
+
+```{r}
+
+qc_data <- inner_join(miss, het, by = c("FID", "IID"))
+
+```
+
+# visualize Heterozygosity vs missingness
+
+```{r}
+
+ggplot(qc_data, aes(x = HET_RATE, y = F_MISS)) +
+  geom_point(alpha = 0.7) +
+  coord_cartesian(ylim = c(0, 0.1)) +  # Zoom into meaningful y-range
+  theme_minimal() +
+  labs(title = "HTS iSelect HD: Heterozygosity vs. Missingness",
+       x = "Heterozygosity Rate",
+       y = "Missingness (F_MISS)") +
+  geom_hline(yintercept = 0.05, color = "red", linetype = "dashed")
+
+```
+
+# formal outlier identification based on +- 3 SD from mean heterozygosity
+Why ±3 standard deviations?
+
+- In a normal distribution, 99.7% of values fall within ±3 SD of the mean.
+
+- So any point beyond that is very likely an anomaly, not just natural variation.
+
+- This is a common rule-of-thumb for outlier detection, especially when distribution is roughly bell-shaped.
+
+We also include anyone with F_MISS > 0.05, even if their HET_RATE is fine, because high missingness alone is enough to warrant exclusion.
+
+```{r}
+
+# Filter out missing values first
+qc_data_clean <- qc_data %>% filter(!is.na(F_MISS), !is.na(HET_RATE))
+
+# Compute thresholds
+mean_het <- mean(qc_data_clean$HET_RATE)
+sd_het <- sd(qc_data_clean$HET_RATE)
+
+# Identify outliers
+qc_outliers <- qc_data_clean %>%
+  filter(HET_RATE < mean_het - 3 * sd_het |
+         HET_RATE > mean_het + 3 * sd_het |
+         F_MISS > 0.05)
+
+```
+
+# save the outliers to a .txt file for PLINK
+
+```{r}
+
+write.table(qc_outliers[, c("FID", "IID")],
+            file = "chip_HTS_iSelect_HD_outliers.txt",
+            row.names = FALSE, col.names = FALSE, quote = FALSE)
+
+```
+
+
+-------------------------------------------------------------------------
+
+# Omni express chip
+
+```{r}
+
+# Load data
+het <- read.table("chip_OmniExpress_qc.het", header = TRUE)
+miss <- read.table("chip_OmniExpress_qc.imiss", header = TRUE)
+
+```
+
+# observed het rate per individual.
+We subtract homozygotes from the total to get number of heterozygous genotypes, then divide by the total to get the proportion of heterozygosity.
+
+Why? In a healthy sample, heterozygosity falls within a fairly narrow range.
+Too high → Possible contamination (e.g., DNA from 2 people)
+Too low → Possible inbreeding or genotyping failure
+
+```{r}
+
+het$HET_RATE <- (het$N.NM. - het$O.HOM.) / het$N.NM.
+
+```
+
+# merge het and missingness
+
+```{r}
+
+qc_data <- inner_join(miss, het, by = c("FID", "IID"))
+
+```
+
+# visualize Heterozygosity vs missingness
+
+```{r}
+
+ggplot(qc_data, aes(x = HET_RATE, y = F_MISS)) +
+  geom_point(alpha = 0.7) +
+  coord_cartesian(ylim = c(0, 0.1)) +  # Zoom into meaningful y-range
+  theme_minimal() +
+  labs(title = "OmniExpress: Heterozygosity vs. Missingness",
+       x = "Heterozygosity Rate",
+       y = "Missingness (F_MISS)") +
+  geom_hline(yintercept = 0.05, color = "red", linetype = "dashed")
+
+```
+
+# formal outlier identification based on +- 3 SD from mean heterozygosity
+Why ±3 standard deviations?
+
+- In a normal distribution, 99.7% of values fall within ±3 SD of the mean.
+
+- So any point beyond that is very likely an anomaly, not just natural variation.
+
+- This is a common rule-of-thumb for outlier detection, especially when distribution is roughly bell-shaped.
+
+We also include anyone with F_MISS > 0.05, even if their HET_RATE is fine, because high missingness alone is enough to warrant exclusion.
+
+```{r}
+
+# Filter out missing values first
+qc_data_clean <- qc_data %>% filter(!is.na(F_MISS), !is.na(HET_RATE))
+
+# Compute thresholds
+mean_het <- mean(qc_data_clean$HET_RATE)
+sd_het <- sd(qc_data_clean$HET_RATE)
+
+# Identify outliers
+qc_outliers <- qc_data_clean %>%
+  filter(HET_RATE < mean_het - 3 * sd_het |
+         HET_RATE > mean_het + 3 * sd_het |
+         F_MISS > 0.05)
+
+```
+
+# save the outliers to a .txt file for PLINK
+
+```{r}
+
+write.table(qc_outliers[, c("FID", "IID")],
+            file = "chip_OmniExpress_outliers.txt",
+            row.names = FALSE, col.names = FALSE, quote = FALSE)
+
+```
+
+-------------------------------------------------------------------------
+
+# OmniExpress plus chip
+
+```{r}
+
+# Load data
+het <- read.table("chip_OmniExpress_plus_qc.het", header = TRUE)
+miss <- read.table("chip_OmniExpress_plus_qc.imiss", header = TRUE)
+
+```
+
+# observed het rate per individual.
+We subtract homozygotes from the total to get number of heterozygous genotypes, then divide by the total to get the proportion of heterozygosity.
+
+Why? In a healthy sample, heterozygosity falls within a fairly narrow range.
+Too high → Possible contamination (e.g., DNA from 2 people)
+Too low → Possible inbreeding or genotyping failure
+
+```{r}
+
+het$HET_RATE <- (het$N.NM. - het$O.HOM.) / het$N.NM.
+
+```
+
+# merge het and missingness
+
+```{r}
+
+qc_data <- inner_join(miss, het, by = c("FID", "IID"))
+
+```
+
+# visualize Heterozygosity vs missingness
+
+Here, for OmniExpress Plus, we zoomed in on the plot, due to the cluster being in the bottom left corner. 
+
+Is this type of clustering normal? It can be. WHy?
+
+1. Different chips can have different SNP content, which influences observed heterozygosity.
+
+- Some chips are enriched for common SNPs → higher heterozygosity
+
+- Others (like OmniExpress Plus) may focus more on tagging SNPs or rare variants → lower observed heterozygosity
+
+2. This group might also include more genetically homogeneous individuals, e.g., people from a single ancestry → fewer heterozygous positions.
+
+```{r}
+
+ggplot(qc_data, aes(x = HET_RATE, y = F_MISS)) +
+  geom_point(alpha = 0.7) +
+  coord_cartesian(ylim = c(0, 0.02), xlim = c(0.3, 0.38)) +
+  theme_minimal() +
+  labs(title = "OmniExpress Plus: Heterozygosity vs. Missingness",
+       x = "Heterozygosity Rate",
+       y = "Missingness (F_MISS)") +
+  geom_hline(yintercept = 0.05, color = "red", linetype = "dashed")
+
+
+```
+
+# formal outlier identification based on +- 3 SD from mean heterozygosity
+Why ±3 standard deviations?
+
+- In a normal distribution, 99.7% of values fall within ±3 SD of the mean.
+
+- So any point beyond that is very likely an anomaly, not just natural variation.
+
+- This is a common rule-of-thumb for outlier detection, especially when distribution is roughly bell-shaped.
+
+We also include anyone with F_MISS > 0.05, even if their HET_RATE is fine, because high missingness alone is enough to warrant exclusion.
+
+```{r}
+
+# Filter out missing values first
+qc_data_clean <- qc_data %>% filter(!is.na(F_MISS), !is.na(HET_RATE))
+
+# Compute thresholds
+mean_het <- mean(qc_data_clean$HET_RATE)
+sd_het <- sd(qc_data_clean$HET_RATE)
+
+# Identify outliers
+qc_outliers <- qc_data_clean %>%
+  filter(HET_RATE < mean_het - 3 * sd_het |
+         HET_RATE > mean_het + 3 * sd_het |
+         F_MISS > 0.05)
+
+```
+
+# save the outliers to a .txt file for PLINK
+
+```{r}
+
+write.table(qc_outliers[, c("FID", "IID")],
+            file = "chip_OmniExpress_plus_outliers.txt",
+            row.names = FALSE, col.names = FALSE, quote = FALSE)
+
+```
+
+
+-------------------------------------------------------------------------
+
+# Illumina GSAs chip
+
+```{r}
+
+# Load data
+het <- read.table("chip_Illumina_GSAs_qc.het", header = TRUE)
+miss <- read.table("chip_Illumina_GSAs_qc.imiss", header = TRUE)
+
+```
+
+# observed het rate per individual.
+We subtract homozygotes from the total to get number of heterozygous genotypes, then divide by the total to get the proportion of heterozygosity.
+
+Why? In a healthy sample, heterozygosity falls within a fairly narrow range.
+Too high → Possible contamination (e.g., DNA from 2 people)
+Too low → Possible inbreeding or genotyping failure
+
+```{r}
+
+het$HET_RATE <- (het$N.NM. - het$O.HOM.) / het$N.NM.
+
+```
+
+# merge het and missingness
+
+```{r}
+
+qc_data <- inner_join(miss, het, by = c("FID", "IID"))
+
+```
+
+# visualize Heterozygosity vs missingness
+
+```{r}
+
+ggplot(qc_data, aes(x = HET_RATE, y = F_MISS)) +
+  geom_point(alpha = 0.7) +
+  coord_cartesian(ylim = c(0, 0.1) , xlim = c(0.15, 0.25)) +  # Zoom into meaningful y-range +
+  theme_minimal() +
+  labs(title = "Illumina GSAs: Heterozygosity vs. Missingness",
+       x = "Heterozygosity Rate",
+       y = "Missingness (F_MISS)") +
+  geom_hline(yintercept = 0.05, color = "red", linetype = "dashed")
+
+```
+
+# formal outlier identification based on +- 3 SD from mean heterozygosity
+Why ±3 standard deviations?
+
+- In a normal distribution, 99.7% of values fall within ±3 SD of the mean.
+
+- So any point beyond that is very likely an anomaly, not just natural variation.
+
+- This is a common rule-of-thumb for outlier detection, especially when distribution is roughly bell-shaped.
+
+We also include anyone with F_MISS > 0.05, even if their HET_RATE is fine, because high missingness alone is enough to warrant exclusion.
+
+```{r}
+
+# Filter out missing values first
+qc_data_clean <- qc_data %>% filter(!is.na(F_MISS), !is.na(HET_RATE))
+
+# Compute thresholds
+mean_het <- mean(qc_data_clean$HET_RATE)
+sd_het <- sd(qc_data_clean$HET_RATE)
+
+# Identify outliers
+qc_outliers <- qc_data_clean %>%
+  filter(HET_RATE < mean_het - 3 * sd_het |
+         HET_RATE > mean_het + 3 * sd_het |
+         F_MISS > 0.05)
+
+```
+
+# save the outliers to a .txt file for PLINK
+
+```{r}
+
+write.table(qc_outliers[, c("FID", "IID")],
+            file = "chip_Illumina_GSAs_outliers.txt",
+            row.names = FALSE, col.names = FALSE, quote = FALSE)
+
+```
+
+--------------------------------------------------------------------
+
+# Unknown chip
+
+```{r}
+
+# Load data
+het <- read.table("chip_unknown_qc.het", header = TRUE)
+miss <- read.table("chip_unknown_qc.imiss", header = TRUE)
+
+```
+
+# observed het rate per individual.
+We subtract homozygotes from the total to get number of heterozygous genotypes, then divide by the total to get the proportion of heterozygosity.
+
+Why? In a healthy sample, heterozygosity falls within a fairly narrow range.
+Too high → Possible contamination (e.g., DNA from 2 people)
+Too low → Possible inbreeding or genotyping failure
+
+```{r}
+
+het$HET_RATE <- (het$N.NM. - het$O.HOM.) / het$N.NM.
+
+```
+
+# merge het and missingness
+
+```{r}
+
+qc_data <- inner_join(miss, het, by = c("FID", "IID"))
+
+```
+
+# visualize Heterozygosity vs missingness
+
+```{r}
+
+ggplot(qc_data, aes(x = HET_RATE, y = F_MISS)) +
+  geom_point(alpha = 0.7) +
+  coord_cartesian(ylim = c(0, 0.1) , xlim = c(0.0, 0.45)) +  # Zoom into meaningful y-range
+  theme_minimal() +
+  labs(title = "Unknown: Heterozygosity vs. Missingness",
+       x = "Heterozygosity Rate",
+       y = "Missingness (F_MISS)") +
+  geom_hline(yintercept = 0.05, color = "red", linetype = "dashed")
+
+```
+
+# formal outlier identification based on +- 3 SD from mean heterozygosity
+Why ±3 standard deviations?
+
+- In a normal distribution, 99.7% of values fall within ±3 SD of the mean.
+
+- So any point beyond that is very likely an anomaly, not just natural variation.
+
+- This is a common rule-of-thumb for outlier detection, especially when distribution is roughly bell-shaped.
+
+We also include anyone with F_MISS > 0.05, even if their HET_RATE is fine, because high missingness alone is enough to warrant exclusion.
+
+```{r}
+
+# Filter out missing values first
+qc_data_clean <- qc_data %>% filter(!is.na(F_MISS), !is.na(HET_RATE))
+
+# Compute thresholds
+mean_het <- mean(qc_data_clean$HET_RATE)
+sd_het <- sd(qc_data_clean$HET_RATE)
+
+# Identify outliers
+qc_outliers <- qc_data_clean %>%
+  filter(HET_RATE < mean_het - 3 * sd_het |
+         HET_RATE > mean_het + 3 * sd_het |
+         F_MISS > 0.05)
+
+```
+
+# save the outliers to a .txt file for PLINK
+
+```{r}
+
+write.table(qc_outliers[, c("FID", "IID")],
+            file = "chip_unknown_outliers.txt",
+            row.names = FALSE, col.names = FALSE, quote = FALSE)
+
+```
+
