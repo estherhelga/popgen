@@ -1,0 +1,109 @@
+---
+title: "Untitled"
+author: "Esther Helga"
+date: "2025-05-06"
+output: html_document
+---
+
+
+```{r}
+
+# Define a function to load PCA results, merge with phenotype data, and plot PC1 vs PC2
+plot_pca_colored_by_phenotype <- function(chip_name) {
+  
+  # Load PCA results for the specific chip
+  pca_data <- read.table(paste0(chip_name, "_pca.eigenvec"), header = FALSE)
+  
+  # Load the phenotype data
+  phenotype_data <- read.table("eye_color_updated.txt", header = TRUE)
+  
+  # Merge PCA data with phenotype data based on IID (matches v1 in PCA and IID in phenotype file)
+  merged_data <- merge(pca_data, phenotype_data[, c("IID", "phenotype")], by.x = "V1", by.y = "IID")
+  
+  # Extract PC1, PC2, and phenotype
+  pc1 <- merged_data$V3  # PC1 is in the 3rd column
+  pc2 <- merged_data$V4  # PC2 is in the 4th column
+  phenotype <- merged_data$phenotype  # Phenotype column
+  
+  # Create a scatter plot of PC1 vs PC2, colored by phenotype
+  plot(pc1, pc2, 
+       xlab = "PC1", ylab = "PC2", main = paste(chip_name, ": PCA - PC1 vs PC2"),
+       pch = 19, col = phenotype + 1, # Adding 1 to color the points based on phenotype
+       cex = 0.7, 
+       xlim = c(min(pc1) - 0.1, max(pc1) + 0.1), 
+       ylim = c(min(pc2) - 0.1, max(pc2) + 0.1))
+  
+  # Add a legend for the colors (matching the phenotype values)
+  legend("topright", legend = c("Blue", "Green/Blue-Green", "Hazel", "Brown"), 
+         fill = c(4, 3, 2, 1), title = "Phenotype", cex = 0.8)
+  
+  # Save the plot as a PNG file with a unique name
+  png(paste0(chip_name, "_pca_colored_by_phenotype.png"))
+  plot(pc1, pc2, 
+       xlab = "PC1", ylab = "PC2", main = paste(chip_name, ": PCA - PC1 vs PC2"),
+       pch = 19, col = phenotype + 1, 
+       cex = 0.7, 
+       xlim = c(min(pc1) - 0.1, max(pc1) + 0.1), 
+       ylim = c(min(pc2) - 0.1, max(pc2) + 0.1))
+  legend("topright", legend = c("Blue", "Green/Blue-Green", "Hazel", "Brown"), 
+         fill = c(4, 3, 2, 1), title = "Phenotype", cex = 0.8)
+  dev.off()
+}
+
+# List of chip names
+chip_names <- c("chip_HTS_iSelect_HD", "chip_Illumina_GSAs", "chip_OmniExpress", "chip_OmniExpress_plus", "chip_unknown")
+
+# Loop through each chip group and create the PCA plots colored by phenotype
+for (chip in chip_names) {
+  plot_pca_colored_by_phenotype(chip)
+}
+
+
+
+```
+
+
+```{r}
+
+# Define a function to create the cumulative variance plot for each chip
+plot_cumulative_variance <- function(chip_name) {
+  
+  # Load the eigenvalues (variance explained) from the PCA results
+  eigenvalues <- read.table(paste0(chip_name, "_pca.eigenval"), header = FALSE)
+  
+  # The eigenvalues are in the first column (V1)
+  variance_explained <- eigenvalues$V1
+  
+  # Calculate the cumulative variance explained
+  cumulative_variance <- cumsum(variance_explained) / sum(variance_explained)
+  
+  # Create the cumulative variance plot
+  plot(1:length(cumulative_variance), cumulative_variance, type = "b", 
+       xlab = "Principal Components", ylab = "Cumulative Variance Explained", 
+       main = paste(chip_name, ": Cumulative Variance Explained"),
+       pch = 19, col = "blue", cex = 0.7, ylim = c(0, 1))
+  
+  # Add a horizontal line at 0.9 to indicate the threshold for 90% variance explained
+  abline(h = 0.9, col = "red", lty = 2)
+  
+  # Save the plot as a PNG file
+  png(paste0(chip_name, "_cumulative_variance_plot.png"))
+  plot(1:length(cumulative_variance), cumulative_variance, type = "b", 
+       xlab = "Principal Components", ylab = "Cumulative Variance Explained", 
+       main = paste(chip_name, ": Cumulative Variance Explained"),
+       pch = 19, col = "blue", cex = 0.7, ylim = c(0, 1))
+  abline(h = 0.9, col = "red", lty = 2)
+  dev.off()
+}
+
+# List of chip names
+chip_names <- c("chip_HTS_iSelect_HD", "chip_Illumina_GSAs", "chip_OmniExpress", "chip_OmniExpress_plus", "chip_unknown")
+
+# Loop through each chip group and create the cumulative variance plots
+for (chip in chip_names) {
+  plot_cumulative_variance(chip)
+}
+
+
+```
+
