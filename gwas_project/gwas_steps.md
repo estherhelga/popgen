@@ -472,7 +472,7 @@ cd /faststorage/project/populationgenomics/students/estherhelga/GWAS_project/
     | **Brown**            | brown, amber-brown, dark_brown, black                                                                                       | ≈ 600                 |
 
   # 6.1: Creating the new phenotype file
-    The original eye_color.txt file had the self reported colors, so using R, I made a new file called eye_color_updated.txt that has the "IID", "FID", "color", "scale" and "phenotype". This R script is called 4_model_scale_creation
+    The original eye_color.txt file had the self reported colors, so using R, I made a new file called eye_color_updated.txt that has the "IID", "FID", "phenotype". This R script is called 4_model_scale_creation
 
 # 7:  Population Structure and Confounder Checks
   We will focus on the Principal Component Analysis (PCA), Relatedness Check, and Sex Check before moving on to the GWAS.

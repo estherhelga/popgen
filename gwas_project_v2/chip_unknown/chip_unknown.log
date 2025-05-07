@@ -1,0 +1,30 @@
+PLINK v1.9.0-b.8 64-bit (22 Oct 2024)
+Options in effect:
+  --bfile gwas_data
+  --keep chip_group_unknown.txt
+  --make-bed
+  --out chip_unknown
+
+Hostname: fe-open-01
+Working directory: /faststorage/project/populationgenomics/students/estherhelga/GWAS_project
+Start time: Fri May  2 16:10:32 2025
+
+Random number seed: 1746195032
+515439 MB RAM detected; reserving 257719 MB for main workspace.
+1376653 variants loaded from .bim file.
+2009 people (992 males, 916 females, 101 ambiguous) loaded from .fam.
+Ambiguous sex IDs written to chip_unknown.nosex .
+--keep: 399 people remaining.
+Using 1 thread (no multithreaded calculations invoked).
+Before main variant filters, 399 founders and 0 nonfounders present.
+Calculating allele frequencies... done.
+Warning: 8881 het. haploid genotypes present (see chip_unknown.hh ); many
+commands treat these as missing.
+Warning: Nonmissing nonmale Y chromosome genotype(s) present; many commands
+treat these as missing.
+Total genotyping rate in remaining samples is 0.363947.
+1376653 variants and 399 people pass filters and QC.
+Note: No phenotypes present.
+--make-bed to chip_unknown.bed + chip_unknown.bim + chip_unknown.fam ... done.
+
+End time: Fri May  2 16:11:28 2025

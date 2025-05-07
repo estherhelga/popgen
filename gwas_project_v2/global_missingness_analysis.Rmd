@@ -1,0 +1,80 @@
+---
+title: "Untitled"
+author: "Esther Helga"
+date: "2025-05-07"
+output: html_document
+---
+
+```{r}
+
+# Load necessary library (if you want fancier plots, otherwise base R is fine)
+# install.packages("ggplot2")
+library(ggplot2)
+
+# Read the .lmiss file
+lmiss_data <- read.table("snp_missing_stats.lmiss", header = TRUE, as.is = TRUE)
+
+# --- Basic Exploration ---
+# Summary of F_MISS
+summary(lmiss_data$F_MISS)
+
+# Histogram of F_MISS
+# Base R histogram
+hist(lmiss_data$F_MISS, breaks = 50, 
+     main = "Histogram of SNP Missingness (F_MISS)", 
+     xlab = "Fraction Missing per SNP", col = "lightblue")
+
+# ggplot2 histogram (optional, prettier)
+ggplot(lmiss_data, aes(x = F_MISS)) +
+  geom_histogram(binwidth = 0.02, fill = "blue", color = "black", alpha = 0.7) +
+  labs(title = "Distribution of SNP Missingness (F_MISS)",
+       x = "Fraction Missing per SNP (geno)",
+       y = "Number of SNPs") +
+  theme_minimal()
+
+# --- Determine how many SNPs are kept at different thresholds ---
+thresholds <- c(0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90, 0.95)
+snps_retained <- sapply(thresholds, function(thresh) {
+  sum(lmiss_data$F_MISS <= thresh)
+})
+
+results_df <- data.frame(Threshold = thresholds, SNPs_Retained = snps_retained)
+print(results_df)
+
+# Plot SNPs retained vs. threshold
+plot(results_df$Threshold, results_df$SNPs_Retained, type = "b", pch = 19,
+     xlab = "--geno Threshold (Max F_MISS allowed)", 
+     ylab = "Number of SNPs Retained",
+     main = "SNPs Retained at Different --geno Thresholds",
+     ylim = c(0, nrow(lmiss_data))) # Ensure y-axis starts at 0 and goes to total SNPs
+abline(h = 62652, col = "red", lty = 2) # Your current number of SNPs at 0.05
+text(0.05, 62652 + 50000, "Current at 0.05", col = "red", pos = 4) # Adjust y for label
+
+# ggplot2 version (optional)
+ggplot(results_df, aes(x = Threshold, y = SNPs_Retained)) +
+  geom_line() +
+  geom_point() +
+  geom_hline(yintercept = 62652, linetype = "dashed", color = "red") +
+  annotate("text", x = 0.07, y = 62652 + 50000, label = "Current at 0.05 (62,652 SNPs)", color = "red") +
+  labs(title = "SNPs Retained vs. --geno Threshold",
+       x = "--geno Threshold (Max F_MISS allowed)",
+       y = "Number of SNPs Retained") +
+  scale_y_continuous(labels = scales::comma) + # Nicer y-axis labels
+  theme_bw()
+
+# --- Making a Decision ---
+# Look at the histogram:
+# - Is there a large spike at F_MISS close to 0 (very well-genotyped SNPs)?
+# - Are there other spikes at higher missingness values? These might represent SNPs present on fewer chips.
+#   For example, if one chip covers 20% of your samples (approx 376 people), SNPs unique to that chip 
+#   would have F_MISS around 0.80 (1 - 0.20).
+
+# Look at the "SNPs Retained" plot:
+# - Where does the curve start to flatten, or where do you get diminishing returns (adding many more
+#   SNPs that are very highly missing)?
+# - This plot helps you see the trade-off explicitly. For example, moving from --geno 0.05 to 0.10
+#   might gain you X thousands of SNPs. Are those X thousands SNPs mostly missing in, say, >80% of people?
+#   Or are they missing in only 6-10% of people?
+
+```
+

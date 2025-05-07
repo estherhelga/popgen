@@ -1,0 +1,191 @@
+---
+title: "Untitled"
+author: "Esther Helga"
+date: "2025-05-07"
+output: html_document
+---
+
+```{r}
+library(ggplot2) 
+library(dplyr)   # <--- ADD THIS OR ENSURE IT'S LOADED
+
+```
+
+
+```{r}
+
+# Example R code to plot F-statistic
+sexcheck_data <- read.table("sex_check_results.sexcheck", header = TRUE, as.is = TRUE)
+
+# Load IID to ChipType mapping
+# Ensure the path to your mapping file is correct
+# Ensure the delimiter is correct (e.g., sep = "\t" for tab-separated)
+tryCatch({
+  iid_chip_map <- read.table("iid_to_chip.txt", header = TRUE, as.is = TRUE, sep = "\t") # Adjust sep if needed
+  print("Successfully loaded iid_to_chip.txt")
+  print(head(iid_chip_map))
+}, error = function(e) {
+  stop("Error loading iid_to_chip.txt. Please ensure the file exists, the path is correct, and it's properly formatted. Error: ", e$message)
+})
+
+
+# Merge sexcheck_data with chip information
+# Make sure the IID column names match or adjust accordingly.
+# PLINK's .sexcheck file usually has 'IID'. Your mapping file should also have 'IID'.
+sexcheck_data_merged <- merge(sexcheck_data, iid_chip_map, by = "IID", all.x = TRUE)
+# all.x = TRUE ensures all rows from sexcheck_data are kept, even if an IID isn't in the map (though ideally all should be)
+
+print("Head of merged data with chip information:")
+print(head(sexcheck_data_merged))
+
+# Check if any IIDs didn't get a ChipType (should be 0 if mapping is complete)
+print(paste("Number of samples with NA ChipType after merge:", sum(is.na(sexcheck_data_merged$ChipType))))
+
+# In an earlier R chunk, after creating sexcheck_data_merged
+non_omni_data <- sexcheck_data_merged %>% filter(ChipType != "chip_OmniExpress")
+hist(non_omni_data$F, breaks = 30, 
+     main = "F-statistic for Non-OmniExpress Samples", xlab = "F-statistic")
+abline(v = 0.2, col = "blue", lty = 2) # Your current female_F_max
+abline(v = 0.90, col = "blue", lty = 2) # Your current male_F_min
+
+```
+
+```{r}
+
+# Extract samples with STATUS == "PROBLEM"
+problem_samples_data <- sexcheck_data_merged[sexcheck_data_merged$STATUS == "PROBLEM", ]
+
+print("Head of the extracted 'PROBLEM' samples sub-dataset:")
+print(head(problem_samples_data))
+print(paste("Total 'PROBLEM' samples:", nrow(problem_samples_data)))
+
+```
+
+
+```{r}
+
+# Now analyze the distribution of these PROBLEM samples by ChipType
+if (nrow(problem_samples_data) > 0) {
+  cat("\nDistribution of 'PROBLEM' samples by ChipType:\n")
+  problem_by_chip <- table(problem_samples_data$ChipType)
+  print(problem_by_chip)
+
+  cat("\nProportion of 'PROBLEM' samples from each ChipType (relative to total PROBLEM samples):\n")
+  print(prop.table(problem_by_chip))
+
+  # More advanced: Proportion of samples on a chip that are 'PROBLEM'
+  cat("\nTotal samples per ChipType in the full dataset:\n")
+  total_by_chip_full_dataset <- table(sexcheck_data_merged$ChipType)
+  print(total_by_chip_full_dataset)
+  
+  cat("\nProportion of samples on each chip that have 'PROBLEM' status:\n")
+  # Ensure problem_by_chip and total_by_chip_full_dataset have the same chip names and order for division
+  # It's safer to convert to dataframes and merge or use dplyr for this
+  
+  problem_by_chip_df <- as.data.frame(problem_by_chip)
+  colnames(problem_by_chip_df) <- c("ChipType", "ProblemCount")
+  
+  total_by_chip_df <- as.data.frame(total_by_chip_full_dataset)
+  colnames(total_by_chip_df) <- c("ChipType", "TotalCount")
+  
+  comparison_df <- merge(problem_by_chip_df, total_by_chip_df, by = "ChipType", all = TRUE)
+  comparison_df$ProblemCount[is.na(comparison_df$ProblemCount)] <- 0 # If a chip had 0 problems
+  
+  comparison_df$ProportionProblemOnChip <- comparison_df$ProblemCount / comparison_df$TotalCount
+  print(comparison_df)
+
+  # Barplot of problem counts by chip
+  barplot(problem_by_chip, 
+          main = "Number of 'PROBLEM' Sex Check Samples by Chip Type",
+          xlab = "Chip Type", ylab = "Number of Samples", las = 2, col = "coral")
+  
+  # Barplot of proportion of problem samples on each chip
+  # Ensure ChipType names are not too long for the x-axis labels if using base R barplot directly
+  # For ggplot, it handles it better.
+  # Using ggplot2 for proportions
+  if (require(ggplot2)) {
+    print(
+      ggplot(comparison_df, aes(x = ChipType, y = ProportionProblemOnChip, fill = ChipType)) +
+        geom_bar(stat = "identity") +
+        labs(title = "Proportion of Samples on Each Chip with 'PROBLEM' Sex Check Status",
+             x = "Chip Type", y = "Proportion Problematic") +
+        theme_minimal() +
+        theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+        scale_y_continuous(labels = scales::percent) # Show y-axis as percentage
+    )
+  }
+  
+} else {
+  print("No samples with 'PROBLEM' status found.")
+}
+
+```
+
+```{r}
+
+# Ensure sexcheck_data_merged is loaded and contains:
+# FID, IID, F, STATUS, SNPSEX, ChipType
+
+# Define F-statistic thresholds for ambiguity
+female_F_max <- 0.2
+male_F_min <- 0.9
+
+# Filter for samples to potentially remove
+# Criteria:
+# 1. NOT on 'chip_OmniExpress'
+# 2. AND (F-statistic is NaN OR F-statistic is between female_F_max and male_F_min)
+
+samples_for_consideration <- sexcheck_data_merged %>%
+  filter(ChipType != "chip_OmniExpress") %>%
+  filter(is.na(F) | (F > female_F_max & F < male_F_min))
+
+# Select only FID and IID for the output file
+samples_to_remove_df <- samples_for_consideration %>%
+  select(FID, IID)
+
+# --- Verification (optional, but recommended) ---
+cat("The following non-OmniExpress samples are flagged for removal due to NaN or ambiguous F-statistic:\n")
+if (nrow(samples_to_remove_df) > 0) {
+  # To see why they were flagged, let's print more info from samples_for_consideration
+  print(samples_for_consideration %>% select(FID, IID, F, STATUS, SNPSEX, ChipType))
+} else {
+  print("No non-OmniExpress samples met the removal criteria (NaN or ambiguous F).")
+}
+cat("\nTotal non-OmniExpress samples selected for removal:", nrow(samples_to_remove_df), "\n")
+# --- End Verification ---
+
+# Write the FID and IID to the output file for PLINK
+# This file will be used with plink --remove
+if (nrow(samples_to_remove_df) > 0) {
+  write.table(samples_to_remove_df, "individuals_to_remove_sex_issues.txt", 
+              col.names = FALSE, row.names = FALSE, quote = FALSE, sep = "\t")
+  cat("Written", nrow(samples_to_remove_df), "samples to individuals_to_remove_sex_issues.txt\n")
+} else {
+  # If no samples are to be removed, PLINK's --remove flag might prefer an empty file
+  # or you can skip the --remove step if the file is empty.
+  # Creating an empty file is often safer if the script pipeline expects it.
+  cat("No samples to remove. Creating an empty individuals_to_remove_sex_issues.txt\n")
+  file.create("individuals_to_remove_sex_issues.txt")
+}
+
+# --- Further analysis of "PROBLEM" samples you might KEEP ---
+# (For your understanding, not for the removal list)
+problem_but_genetically_clear <- sexcheck_data_merged %>%
+  filter(ChipType != "chip_OmniExpress") %>%
+  filter(STATUS == "PROBLEM") %>%
+  filter(!is.na(F) & (F <= female_F_max | F >= male_F_min)) %>% # F is NOT NaN and NOT ambiguous
+  filter(SNPSEX == 1 | SNPSEX == 2) # SNPSEX is clearly male or female
+
+
+cat("\nNon-OmniExpress 'PROBLEM' samples with clear genetic sex (F-stat and SNPSEX) that will NOT be removed by the above criteria:\n")
+if(nrow(problem_but_genetically_clear) > 0) {
+  print(problem_but_genetically_clear %>% select(FID, IID, PEDSEX, SNPSEX, F, STATUS, ChipType))
+} else {
+  print("No such samples found.")
+}
+cat("\n")
+
+```
+
+
+
