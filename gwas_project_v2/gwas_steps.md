@@ -379,11 +379,200 @@ For this, we used the following command, with the global missingness threshhold 
 
 
 # LD Pruning (Preparation for PCA & Relatedness)
+  Objective: 
+    To create a subset of SNPs from your current dataset (merged_data_step1_geno_final) that are in approximate linkage equilibrium (LD) with each other. This pruned set is ideal for PCA and relatedness estimation, as these methods assume (or perform better with) SNPs that are not highly correlated due to LD.
 
+  Method: Window-based LD Pruning using PLINK (--indep-pairwise)
+    This method works by:
+      Calculating LD (typically r²) between pairs of SNPs within a defined window.
+      If a pair of SNPs has r² greater than a specified threshold, one SNP from the pair is removed.
+      The window then slides along the chromosome.
 
+  Step 1: Excluding Regions of High and Complex LD (Optional but Recommended)
+    We are looking to exclude the MHC (found on Chr6), since it is known to shwocase highly complex LD patterns. 
+      To do this, we first had to find out the genome build for our data, which using rs positions and the NIH website <https://www.ncbi.nlm.nih.gov/snp/>, we found to be GRCh37. 
+      Next, we need to find the specific coordinates for the regions we want to exclude, which to start with is just the MHC on chromosome 6. 
+        This time, using NCBI and the Genome Referance Consortium, we see that on our specific build, the MHC coordinates on chromosme 6 are:
+          28,477,797 - 33,448,354.
+          A commonly used broad range for exclusion is chr6:25000000-35000000, however I am not sure which one we should go with. 
+
+            To check how many SNPs we have in the broad reagion, we can use the following command:
+              awk '$1 == "6" && $4 >= 25000000 && $4 <= 35000000 {print $0}' merged_data_step1_geno_final.bim | wc -l
+
+        For now, I think only exlcuding the MHC is fine, however, other areas of note are: 
+          The 8p23 inversion on chr8. 
+      
+    After the analysis of the data, as well as finding the coordinates of the MHC within our specific genome build, we created a textfile called high_ld_regions_exclude.txt, whcih includes the chromosome and range, as well as the MHC label. We need this file for the following PLINK command:
+
+      plink --bfile merged_data_step1_geno_final \
+      --exclude range high_ld_regions_exclude.txt \
+      --make-bed \
+      --out merged_data_step1_geno_final_noMHC
+    
+    This plink command creates a new set of bfiles, that we then can use for further pruning before checking relatedness and pop structure. 
+
+  Step 2: Perform LD Pruning with --indep-pairwise
+
+    Objective:
+      To identify a subset of SNPs from merged_data_step1_geno_final_noMHC that are in approximate linkage equilibrium (i.e., not highly correlated with each other due to physical proximity on the chromosome). This command doesn't create a new dataset directly, but rather generates lists of SNPs to keep or remove.
+
+      plink --bfile merged_data_step1_geno_final_noMHC \
+      --indep-pairwise 50 5 0.2 \
+      --out ld_pruning_results
+
+        --indep-pairwise 50 5 0.2:
+          This is the core flag for window-based LD pruning.
+          50: This is the window size in SNPs. PLINK will consider a sliding window of 50 SNPs at a time.
+          5: This is the SNP count to shift the window by at each step. After processing a window, it moves 5 SNPs forward to define the next window.
+          0.2: This is the r² (squared correlation coefficient) threshold. For any pair of SNPs within the current window, if their r² value is greater than 0.2, one SNP from that pair will be marked for removal. PLINK typically keeps the SNP with the higher MAF from such a pair, or if MAFs are equal, the one that appears first in the .bim file.
+          Parameter Choice:
+          50 5 0.2 are very common default parameters used in many studies and tutorials. They provide a reasonable balance, aiming to remove strong LD without being overly aggressive.
+          You can adjust these:
+          Smaller window size (e.g., 20) or larger r² threshold (e.g., 0.5) would result in less pruning (more SNPs kept).
+          Larger window size (e.g., 100) or smaller r² threshold (e.g., 0.1) would result in more pruning (fewer SNPs kept).
+          For your project, 50 5 0.2 is a perfectly good starting point.
+
+            Principal Component Analysis (PCA) / Admixture / Population Structure: You want SNPs to be as independent as possible. A lower r² (e.g., 0.1, 0.2) is common. 0.2 means you're removing SNPs that share about 20% or more of their variance with another SNP in the window.
+            IBD Estimation / Relatedness: Moderate LD can sometimes be tolerated or even informative, but very high LD can skew estimates. 0.2 to 0.5 might be used.
+
+      Looking at the .log file from the pruning results, we can see how many variants were removed from each chromosome. In total over all 22 autosomal chromosome pairs we removed  19087 of 62091 variants.
+    
+
+  Step 3: Create a New PLINK Fileset with Only the Pruned-In SNPs 
+    
+    Objective:
+      To create a new PLINK binary fileset (.bed, .bim, .fam) that contains all your current individuals but only the ~43,004 SNPs that were identified as being in approximate linkage equilibrium by the --indep-pairwise command (i.e., those listed in ld_pruning_results.prune.in).
+
+    PLINK command:
+
+      plink --bfile merged_data_step1_geno_final_noMHC \
+      --extract ld_pruning_results.prune.in \
+      --make-bed \
+      --out merged_data_step2_pruned
 
 
 # Population Stratification (PCA) & Batch Effect Visualization
+  We can do these two "together" or at the same time, as they are close together. PCA is the primary tool used to visualize both popuæation stratification and potential batch effects. 
+    - Population Stratification: PCA identifies the major axes of genetic variation in your dataset. These axes often correspond to ancestral differences or population substructure.
+    - Batch Effect Visualization: By plotting the samples on the principal components (e.g., PC1 vs PC2) and then coloring the points by a suspected batch variable (like 'chip type' in your case), you can visually assess if samples from different batches cluster separately along these PCs. If they do, and this separation isn't easily explained by known population structure, it suggests a batch effect.
+
+    Using PLINK for our calculations: 
+      plink --bfile merged_data_step2_pruned \
+      --pca 10 \
+      --out pca_results_initial
+
+
+      If we feel like looking at more than the topp 10 PCs, we can change the --pca command. 
+
+      --out pca_results_initial: Basename for the output files. PLINK will create:
+        pca_results_initial.eigenvec: This is the most important file. It contains the principal components (eigenvectors) for each individual. It will have columns like: FID, IID, PC1, PC2, ..., PC10.
+        pca_results_initial.eigenval: Contains the eigenvalues for each component, which indicate the amount of variance explained by each PC. Useful for creating a scree plot (though not strictly required by your project description for the main plot).
+        pca_results_initial.log: Standard PLINK log.
+
+
+    Next, we load the eigen files into R, where we do the PCA visualiations. Please refer to the following r script for this: 
+
+    During this step, we discovered a crutial data mismatch, whcih we had not found earlier. We had some individuals in the eye_color data that we did not have genotyping data for, as well as individuals we had genotyping data for but no reported phenotype in the eye_color data. These mismatches explained the troubles we had during the R analysis, where a lot of our individuals were coming up as NAs. This was due to the mismatch. 
+
+      50 iids_in_pheno_not_gwas.txt
+      191 iids_in_gwas_not_pheno.txt
+      1818 iids_common_to_both.txt
+
+
+  # Updates to the whole pipeline:
+
+    Create the PLINK "keep" file (FID and IID for common individuals)
+
+        awk 'NR==FNR{keep[$1]; next} $2 in keep {print $1, $2}' iids_common_to_both.txt gwas_data.fam > individuals_to_keep_for_gwas.txt
+
+    Filter the Merged Genetic Data to Keep Only Common Individuals
+
+        plink --bfile merged_data_step0_hhCleaned \
+      --keep individuals_to_keep_for_gwas.txt \
+      --make-bed \
+      --out merged_data_core_cohort
+
+    Sex Inference (Sex Check) on the Core Cohort
+
+        plink --bfile merged_data_core_cohort \
+      --check-sex \
+      --out core_cohort_sex_check_results
+
+      Analysis done in R using the sex_individuals_remove.Rmd, Where we create a new core_cohort_individuals_to_remove_sex_issues.txt file. 
+
+    Remove Individuals with Ambiguous Sex (from Core Cohort)
+
+      plink --bfile merged_data_core_cohort \
+      --remove core_cohort_individuals_to_remove_sex_issues.txt \
+      --make-bed \
+      --out merged_data_core_cohort_sexcleaned
+
+    Global Marker Genotyping Call Rate (SNP missingness) on Sex-Cleaned Core Cohort
+
+      plink --bfile merged_data_core_cohort_sexcleaned \
+      --geno 0.05 \
+      --make-bed \
+      --out merged_data_core_cohort_geno_filtered
+
+    Exclude High LD Regions (e.g., MHC)
+
+      plink --bfile merged_data_core_cohort_geno_filtered \
+      --exclude range high_ld_regions_exclude.txt \
+      --make-bed \
+      --out merged_data_core_cohort_noMHC
+
+    Perform LD Pruning (Identify SNPs to keep)
+
+      plink --bfile merged_data_core_cohort_noMHC \
+      --indep-pairwise 50 5 0.2 \
+      --out core_cohort_ld_pruning_results
+
+          Pruning complete.  19102 of 62091 variants removed.
+
+    Create the Final LD-Pruned Dataset:
+
+      plink --bfile merged_data_core_cohort_noMHC \
+      --extract core_cohort_ld_pruning_results.prune.in \
+      --make-bed \
+      --out merged_data_final_pruned_for_pca
+
+
+    Population Stratification (PCA) & Batch Effect Visualization (Run PCA)
+
+      plink --bfile merged_data_final_pruned_for_pca \
+      --pca 10 \
+      --out final_pca_results
+
+  # PCA analysis
+      Based on the PCA plots (especially the one colored by chip type and the one just showing general structure):
+      Population Structure: Do the samples form one homogenous cloud, or are there distinct clusters or gradients? If so, what might these correspond to (e.g., European ancestries, other ancestries if present in openSNP data)?
+      Batch Effects: Do samples cluster primarily by chip type on any of the top PCs? If chip_OmniExpress (or any other chip) forms a separate cluster from the others, this is strong evidence of a batch effect. You'd mention that the PCA reveals chip-specific clustering.
+      Outliers: Are there any individual samples that are extreme outliers on the PCA plot? These might warrant further investigation (though QC should have caught most problematic samples).
+
+        PCA: PC1 vs PC2 (Population Structure - Uncolored Plot):
+          Observation: You see a main dense "cloud" of points near the origin (0,0), but also distinct "arms" or gradients extending away, particularly towards the positive PC1 direction, and separating further along PC2 in the upper-right and lower-right quadrants.
+          Interpretation (Population Structure): This is a classic picture of significant population substructure.
+          PC1 (46.1% variance): This axis captures the largest source of genetic variation among your samples. Given that openSNP data often has a strong European component but also includes individuals of other ancestries, PC1 frequently separates individuals along a major axis of European variation (e.g., North-West Europe vs. South/East Europe) or sometimes separates Europeans from non-Europeans. The large spread along this axis means there are substantial genetic differences captured here.
+          PC2 (21.3% variance): This captures the second largest amount of variation. It further differentiates groups. It might separate different European subgroups or distinguish individuals with non-European ancestry (e.g., East Asian, African, Ashkenazi Jewish – whose genetic profiles differ from the main European cluster) from the main European cluster(s).
+          The Dense Cloud: Likely represents the most numerous ancestry group in your subset (often Northern/Western European descent in openSNP).
+          The "Arms": Represent individuals who are genetically distinct from the main cloud along these primary axes. They could be from different European populations, individuals with non-European ancestry, or potentially admixed individuals.
+          Conclusion: Your dataset is not genetically homogeneous. It contains substantial population structure, likely reflecting diverse ancestries present in the openSNP cohort. This structure must be controlled for in your GWAS to avoid spurious associations. Including PC1 and PC2 (and possibly more PCs) as covariates is essential.
+
+
+        PCA: PC1 vs PC2, Colored by Chip Type:
+          Observation: As you noted, the different colors (chip types) are largely intermingled throughout the structure revealed in the first plot. There isn't one color forming its own isolated island separate from the others along PC1 or PC2.
+          Interpretation (Batch Effects): This is generally very good news. It indicates that the major population structure patterns (captured by PC1 and PC2) are not primarily driven by which chip the sample was run on. If there were strong, systematic technical differences between chips affecting many of the ~43k common SNPs used for PCA, you would expect to see distinct clusters based purely on color. The mixing suggests that genetic variation (ancestry) is a much stronger signal than chip type for these top PCs after your QC steps.
+          Conclusion: While originating from different genotyping platforms, the samples do not show strong clustering by chip type along the primary axes of genetic variation (PC1/PC2) after quality control, suggesting major batch effects are not confounding the observed population structure in this view.
+
+        PCA: PC1 vs PC2, Colored by Mapped Eye Color:
+          Observation: You see clear non-random distribution. Blue (0) is concentrated in the main dense cloud. Green/Hazel (1, 2) are also mostly in/near that cloud. Brown (3) is present in the cloud but is much more prevalent in the "arms" extending towards positive PC1. Your observation about darker eyes "stretching out" is accurate. The two NAs are also plotted somewhere based on their genetics.
+          Interpretation (Phenotype-Structure Correlation): This strongly indicates that eye color is correlated with the genetic ancestry captured by PCA.
+          The main cluster (low PC1/PC2), rich in blue eyes, likely represents populations with high frequencies of alleles associated with blue eyes (e.g., common variants near HERC2/OCA2 prevalent in Europeans, especially Northern Europeans).
+          The "arms" (higher PC1), rich in brown eyes, likely represent populations where alleles for brown eyes are much more common (e.g., Southern Europeans, non-Europeans).
+          This is biologically expected. Eye color frequencies vary significantly across global populations.
+          Conclusion: Eye color phenotype is significantly correlated with the population structure identified by PC1 and PC2. This underscores the critical importance of using PCs as covariates in the GWAS. Failing to do so would lead to highly inflated results and false positives, simply rediscovering that different ancestry groups have different eye colors, rather than finding specific causal variants within those populations.
+              
+        The PCA clearly reveals substantial population stratification within your openSNP cohort, likely reflecting diverse European and potentially non-European ancestries. The first two principal components capture over 67% of the genetic variance in the LD-pruned dataset. Encouragingly, samples do not cluster strongly by genotyping chip along these main PCs, suggesting major batch effects are not driving the primary structure after QC. However, there is a clear correlation between the observed population structure (PCs) and the eye color phenotype, with blue eyes predominating in the main genetic cluster and brown eyes more prevalent in genetically distinct groups. This highlights the necessity of including principal components (e.g., PC1, PC2, and potentially more) as covariates in the subsequent GWAS to control for confounding due to ancestry.
 
 # Sample Relatedness
 

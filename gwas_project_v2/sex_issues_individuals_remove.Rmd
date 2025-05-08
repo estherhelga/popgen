@@ -15,7 +15,7 @@ library(dplyr)   # <--- ADD THIS OR ENSURE IT'S LOADED
 ```{r}
 
 # Example R code to plot F-statistic
-sexcheck_data <- read.table("sex_check_results.sexcheck", header = TRUE, as.is = TRUE)
+sexcheck_data <- read.table("core_cohort_sex_check_results.sexcheck", header = TRUE, as.is = TRUE)
 
 # Load IID to ChipType mapping
 # Ensure the path to your mapping file is correct
@@ -157,9 +157,9 @@ cat("\nTotal non-OmniExpress samples selected for removal:", nrow(samples_to_rem
 # Write the FID and IID to the output file for PLINK
 # This file will be used with plink --remove
 if (nrow(samples_to_remove_df) > 0) {
-  write.table(samples_to_remove_df, "individuals_to_remove_sex_issues.txt", 
+  write.table(samples_to_remove_df, "core_cohort_individuals_to_remove_sex_issues.txt", 
               col.names = FALSE, row.names = FALSE, quote = FALSE, sep = "\t")
-  cat("Written", nrow(samples_to_remove_df), "samples to individuals_to_remove_sex_issues.txt\n")
+  cat("Written", nrow(samples_to_remove_df), "core_cohort_individuals_to_remove_sex_issues.txt\n")
 } else {
   # If no samples are to be removed, PLINK's --remove flag might prefer an empty file
   # or you can skip the --remove step if the file is empty.
