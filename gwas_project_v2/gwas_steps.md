@@ -400,7 +400,10 @@ For this, we used the following command, with the global missingness threshhold 
               awk '$1 == "6" && $4 >= 25000000 && $4 <= 35000000 {print $0}' merged_data_step1_geno_final.bim | wc -l
 
         For now, I think only exlcuding the MHC is fine, however, other areas of note are: 
-          The 8p23 inversion on chr8. 
+          The 8p23 inversion on chr8. (chr 8 : 7–13 Mb?)
+          chr 11 : 45–57 Mb
+          chr 17 : 40–46 Mb
+
       
     After the analysis of the data, as well as finding the coordinates of the MHC within our specific genome build, we created a textfile called high_ld_regions_exclude.txt, whcih includes the chromosome and range, as well as the MHC label. We need this file for the following PLINK command:
 
@@ -574,10 +577,103 @@ For this, we used the following command, with the global missingness threshhold 
               
         The PCA clearly reveals substantial population stratification within your openSNP cohort, likely reflecting diverse European and potentially non-European ancestries. The first two principal components capture over 67% of the genetic variance in the LD-pruned dataset. Encouragingly, samples do not cluster strongly by genotyping chip along these main PCs, suggesting major batch effects are not driving the primary structure after QC. However, there is a clear correlation between the observed population structure (PCs) and the eye color phenotype, with blue eyes predominating in the main genetic cluster and brown eyes more prevalent in genetically distinct groups. This highlights the necessity of including principal components (e.g., PC1, PC2, and potentially more) as covariates in the subsequent GWAS to control for confounding due to ancestry.
 
+
+      Bjarke says that the "elbow shape" we see is usually unwanted. But why? Thats for us to find out. 
+
+      If it is ancestry, it does look pretty similar to these: https://www.nature.com/articles/s41598-021-97129-2/figures/1 
+
+        It’s almost never genuine population structure
+          * In a genome‑wide human data set that has been LD‑pruned, the first PC usually explains ≤ 5 % of the variance. In your plot PC 1 already captures ≈ 46 % and PC 2 another ≈ 21 %—far too much. Those huge eigenvalues and the characteristic fan/“elbow” that splits into two arms are classic fingerprints of a single long‑range LD block or a common chromosomal inversion dominating the PCA rather than broad ancestry differences. https://pmc.ncbi.nlm.nih.gov/articles/PMC7750941/
+
+        Why an inversion/long‑range‑LD block gives a ‘fan’?
+          SNPs inside the block are in very strong mutual LD, so they behave like one giant marker.
+
+          Individuals that are homozygous for the reference orientation pile up on one side of PC 1, those homozygous for the inverted orientation on the other, and heterozygotes lie in between. When PC 2 also picks up variation from the same region, the three genotype classes stretch into a triangle or V.
+
+          Price et al. 2008 first warned that these regions can swamp genome‑wide PCs and create apparent “structure” where none exists. https://pubmed.ncbi.nlm.nih.gov/18606306/ 
+
+        Why it matters for your GWAS
+          If you feed these PCs into your association model you are not “correcting for population stratification”; you are in effect adjusting for (and possibly generating artefactual signals from) one inversion locus.
+
+          Conversely, if you leave the LD block in, variants inside it are very likely to pop up as genome‑wide‑significant hits for eye colour simply because they co‑vary with those PCs, not because they influence the trait.
+
+          So, one by one, we can add new blocks of LD regions or inversions and see if it improves our PCA. 
+
+          So now, when looking at liteature, it seems that a common culprit of a V shape PCA could be due to the 8p23.1 inversion, so looking up the coordinates of that one in our build on ncbi, we find:
+              chr8:8093169-11898980 - the usual range used is 8000000 - 12000000. 
+
+          Another block could be the 17q21.31 Inversion Region (MAPT locus) "The locus structure was first described by Stefansson et al., with inversion breakpoints defined at chr17:43,628,944–44,571,603 (GRCh37–hg19 reference assembly) https://pubmed.ncbi.nlm.nih.gov/15654335/ ":
+                chr17:43,628,944–44,571,603 - So the range we can use is either the specific one or we rounf down and up - 43000000 - 45000000
+
+          Lactase Persistence Region (LCT gene and flanking regions):
+            Chromosome: 2
+            Approximate Size: The region of strong selection and LD around LCT can be quite extended (hundreds of kb to over 1Mb).
+            Reason: Strong positive selection for lactase persistence in European populations has led to long haplotypes and high LD in this region. While not an inversion, its LD pattern can influence PCA.
+            Search: "LCT gene region LD coordinates [your build]" or find the LCT gene and define a generous window around it (e.g., +/- 500kb to 1Mb from the gene's start/end).
+
+            | Chr    | hg19 start–end (Mb) | Why it misbehaves                    | Source                                         |
+            | ------ | ------------------- | ------------------------------------ | ---------------------------------------------- |
+            | **2**  | **86–100.5**        | *LCT* sweep + segmental duplications | Price et al. 2008 ([reich.hms.harvard.edu][1]) |
+            | 2      | 183–190             | Recombination cold spot              | Price et al. 2008 ([PMC][2])                   |
+            | **11** | **46–57**           | Extended LD plateau                  | Price et al. 2008 ([PMC][2])                   |
+            | **1**  | **48–52**           | Large tandem duplications            | Price et al. 2008 ([PMC][2])                   |
+
+
+          I am starting by running the following PLINK commands again, after adding the inversion and LD regions from centrer for statistical genetics (https://genome.sph.umich.edu/wiki/Regions_of_high_linkage_disequilibrium_(LD)). However, This did not change the PCA shape.  
+              # Updated exclusion list is in high_ld_regions_exclude.txt
+
+              #: Exclude High LD Regions (MHC + new ones)
+              plink --bfile merged_data_core_cohort_geno_filtered \
+                    --exclude range high_ld_regions_exclude.txt \
+                    --make-bed \
+                    --out merged_data_core_cohort_multi_LDexcluded 
+                    # New name, e.g., _multi_LDexcluded
+
+              #Perform LD Pruning 
+              plink --bfile merged_data_core_cohort_multi_LDexcluded \
+                    --indep-pairwise 50 5 0.2 \
+                    --out core_cohort_multi_LDexcluded_pruning_results 
+                    # New name
+
+              #Create the Final LD-Pruned Dataset
+              plink --bfile merged_data_core_cohort_multi_LDexcluded \
+                    --extract core_cohort_multi_LDexcluded_pruning_results.prune.in \
+                    --make-bed \
+                    --out merged_data_final_pruned_for_pca_v2 
+                    # New name, e.g., _v2
+
+              #Run PCA
+              plink --bfile merged_data_final_pruned_for_pca_v2 \
+                    --pca 10 \
+                    --out final_pca_results_v2 
+                    # New name
+
+
+        After finding out that the shape was not due to LD or inverted regions, the next steps to try are:
+
+            Project onto 1000 Genomes Reference Panel (Recommended Next Step for Interpretation):
+              This is the standard way to interpret what your PCs mean in terms of global ancestry.
+              You take your ~1800 individuals and project them onto the PC space defined by the diverse 1000 Genomes Project samples (which have known population labels like CEU, YRI, CHB, etc.).
+              How to do it:
+              Download 1000 Genomes Phase 3 PLINK files (ensure good overlap of SNPs with your data).
+              Merge your data with 1000 Genomes data, keeping only common SNPs.
+              Run PCA on this combined dataset.
+              Plot the PCA results, coloring 1000 Genomes samples by their known population labels, and overlay your study samples.
+              This will show you where your samples fall relative to known reference populations, helping you label the arms/clusters in your own PCA (e.g., "This arm clusters with 1000G Europeans," "This group clusters with 1000G East Asians").
+              PLINK can do this, or specialized tools like smartpca from EIGENSOFT, or custom R scripts.
+            Consider ADMIXTURE (Alternative/Complementary):
+              Run ADMIXTURE on your LD-pruned dataset (merged_data_final_pruned_for_pca_v2). Try different values of K (number of ancestral populations, e.g., K=2, 3, 4, 5).
+              Visualize the ancestry proportions for each individual. This can also help delineate population groups.
+              You can then color your original PCA plot by the dominant ADMIXTURE component for each individual.
+
+
+
+
+
+
 # Sample Relatedness
 
 # Final Sample Genotyping Call Rate (Optional Post-Relatedness Check)
-
 # Minor Allele Frequency (MAF) Filter
 
 # Hardy-Weinberg Equilibrium (HWE) Filter

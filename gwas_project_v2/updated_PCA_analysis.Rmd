@@ -13,7 +13,7 @@ library(dplyr)
 ```{r}
 
 # Load the .eigenvec file from PLINK (output from Step 9)
-pca_eigenvectors <- read.table("final_pca_results.eigenvec", header = FALSE, as.is = TRUE)
+pca_eigenvectors <- read.table("final_pca_results_v2.eigenvec", header = FALSE, as.is = TRUE)
 num_pcs <- ncol(pca_eigenvectors) - 2 
 colnames(pca_eigenvectors) <- c("FID", "IID", paste0("PC", 1:num_pcs))
 pca_eigenvectors$FID <- as.character(pca_eigenvectors$FID)
@@ -23,20 +23,23 @@ cat("Head of PCA Eigenvector Data (pca_eigenvectors):\n")
 print(head(pca_eigenvectors))
 cat("Dimensions:", dim(pca_eigenvectors), "\n\n")
 
-# Load eigenvalues for variance explained
-pca_eigenvalues <- read.table("final_pca_results.eigenval", header = FALSE, as.is = TRUE)
+N <- nrow(pca_eigenvectors)                     # number of individuals in your cohort
+pca_eigenvalues <- read.table("final_pca_results_v2.eigenval", header = FALSE)
 colnames(pca_eigenvalues) <- "Eigenvalue"
-pca_eigenvalues$PC_num <- 1:nrow(pca_eigenvalues)
-pca_eigenvalues$VarianceExplained <- pca_eigenvalues$Eigenvalue / sum(pca_eigenvalues$Eigenvalue) * 100
+
+# Each eigenvalue is a variance component; the sum of *all* N eigenvalues equals N
+total_var <- N                    # or nrow(eigenvec) if you prefer
+pca_eigenvalues$VarianceExplained <-
+        pca_eigenvalues$Eigenvalue / total_var * 100
+
+pca_eigenvalues$PC_num <- seq_len(nrow(pca_eigenvalues))        # ← add this back
+pca_eigenvalues$VarianceExplained <- (pca_eigenvalues$Eigenvalue / N )* 100
+
 
 # Get variance for plot labels
 pc1_var <- round(pca_eigenvalues$VarianceExplained[1], 1)
 pc2_var <- round(pca_eigenvalues$VarianceExplained[2], 1)
 pc3_var <- round(pca_eigenvalues$VarianceExplained[3], 1) # Assuming at least 3 PCs
-
-cat("Variance Explained by Top PCs:\n")
-print(head(pca_eigenvalues[,c("PC_num", "VarianceExplained")]), 10)
-cat("\n\n")
 
 ```
 
@@ -124,6 +127,7 @@ cat("\n\n")
 ```
 
 ```{r}
+
 
 # --- Scree Plot ---
 p_scree <- ggplot(pca_eigenvalues, aes(x = PC_num, y = VarianceExplained)) +
@@ -449,4 +453,14 @@ cat("\n--- Finished generating multiple PC plots ---\n")
 ```
 
 
+```{r}
+library(data.table); library(ggplot2)
+w <- fread("pca_with_wts.eigenvec.var", header = FALSE)
+ggplot(w, aes(V2, abs(V5), colour = as.factor(V1))) +
+  geom_point(size = .6) + facet_wrap(~V1, scales = "free_x", nrow = 4) +
+  theme_bw() + labs(y="|loading|", x="Position") +
+  theme(legend.position = "none")
+
+
+```
 
