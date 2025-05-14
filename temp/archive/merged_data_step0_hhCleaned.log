@@ -1,0 +1,30 @@
+PLINK v1.9.0-b.8 64-bit (22 Oct 2024)
+Options in effect:
+  --bfile merged_data_step0
+  --make-bed
+  --out merged_data_step0_hhCleaned
+  --set-hh-missing
+
+Hostname: fe-open-01
+Working directory: /faststorage/project/populationgenomics/students/estherhelga/GWAS_project
+Start time: Wed May  7 15:52:21 2025
+
+Random number seed: 1746625941
+515439 MB RAM detected; reserving 257719 MB for main workspace.
+1325823 variants loaded from .bim file.
+1880 people (939 males, 864 females, 77 ambiguous) loaded from .fam.
+Ambiguous sex IDs written to merged_data_step0_hhCleaned.nosex .
+Using 1 thread (no multithreaded calculations invoked).
+Before main variant filters, 1880 founders and 0 nonfounders present.
+Calculating allele frequencies... done.
+Warning: 85434 het. haploid genotypes present (see
+merged_data_step0_hhCleaned.hh ); many commands treat these as missing.
+Warning: Nonmissing nonmale Y chromosome genotype(s) present; many commands
+treat these as missing.
+Total genotyping rate is 0.440648.
+1325823 variants and 1880 people pass filters and QC.
+Note: No phenotypes present.
+--make-bed to merged_data_step0_hhCleaned.bed + merged_data_step0_hhCleaned.bim
++ merged_data_step0_hhCleaned.fam ... done.
+
+End time: Wed May  7 15:52:25 2025

@@ -1,0 +1,28 @@
+PLINK v1.9.0-b.8 64-bit (22 Oct 2024)
+Options in effect:
+  --bfile merged_data_core_cohort_multi_LDexcluded
+  --extract core_cohort_multi_LDexcluded_pruning_results.prune.in
+  --make-bed
+  --out merged_data_final_pruned_for_pca_v2
+
+Hostname: fe-open-01
+Working directory: /faststorage/project/populationgenomics/students/estherhelga/GWAS_project
+Start time: Fri May  9 18:58:10 2025
+
+Random number seed: 1746809890
+515439 MB RAM detected; reserving 257719 MB for main workspace.
+61136 variants loaded from .bim file.
+1680 people (843 males, 779 females, 58 ambiguous) loaded from .fam.
+Ambiguous sex IDs written to merged_data_final_pruned_for_pca_v2.nosex .
+--extract: 42418 variants remaining.
+Using 1 thread (no multithreaded calculations invoked).
+Before main variant filters, 1680 founders and 0 nonfounders present.
+Calculating allele frequencies... done.
+Total genotyping rate is 0.997747.
+42418 variants and 1680 people pass filters and QC.
+Note: No phenotypes present.
+--make-bed to merged_data_final_pruned_for_pca_v2.bed +
+merged_data_final_pruned_for_pca_v2.bim +
+merged_data_final_pruned_for_pca_v2.fam ... done.
+
+End time: Fri May  9 18:58:10 2025

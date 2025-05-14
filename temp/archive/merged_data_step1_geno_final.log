@@ -1,0 +1,27 @@
+PLINK v1.9.0-b.8 64-bit (22 Oct 2024)
+Options in effect:
+  --bfile merged_data_after_sex_removal
+  --geno 0.05
+  --make-bed
+  --out merged_data_step1_geno_final
+
+Hostname: fe-open-01
+Working directory: /faststorage/project/populationgenomics/students/estherhelga/GWAS_project
+Start time: Wed May  7 18:52:36 2025
+
+Random number seed: 1746636756
+515439 MB RAM detected; reserving 257719 MB for main workspace.
+1325823 variants loaded from .bim file.
+1864 people (939 males, 858 females, 67 ambiguous) loaded from .fam.
+Ambiguous sex IDs written to merged_data_step1_geno_final.nosex .
+Using 1 thread (no multithreaded calculations invoked).
+Before main variant filters, 1864 founders and 0 nonfounders present.
+Calculating allele frequencies... done.
+Total genotyping rate is 0.442355.
+1263171 variants removed due to missing genotype data (--geno).
+62652 variants and 1864 people pass filters and QC.
+Note: No phenotypes present.
+--make-bed to merged_data_step1_geno_final.bed +
+merged_data_step1_geno_final.bim + merged_data_step1_geno_final.fam ... done.
+
+End time: Wed May  7 18:52:37 2025

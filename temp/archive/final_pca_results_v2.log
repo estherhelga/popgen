@@ -1,0 +1,26 @@
+PLINK v1.9.0-b.8 64-bit (22 Oct 2024)
+Options in effect:
+  --bfile merged_data_final_pruned_for_pca_v2
+  --out final_pca_results_v2
+  --pca 10
+
+Hostname: fe-open-01
+Working directory: /faststorage/project/populationgenomics/students/estherhelga/GWAS_project
+Start time: Fri May  9 18:58:31 2025
+
+Random number seed: 1746809911
+515439 MB RAM detected; reserving 257719 MB for main workspace.
+42418 variants loaded from .bim file.
+1680 people (843 males, 779 females, 58 ambiguous) loaded from .fam.
+Ambiguous sex IDs written to final_pca_results_v2.nosex .
+Using up to 63 threads (change this with --threads).
+Before main variant filters, 1680 founders and 0 nonfounders present.
+Calculating allele frequencies... done.
+Total genotyping rate is 0.997747.
+42418 variants and 1680 people pass filters and QC.
+Note: No phenotypes present.
+Relationship matrix calculation complete.
+--pca: Results saved to final_pca_results_v2.eigenval and
+final_pca_results_v2.eigenvec .
+
+End time: Fri May  9 18:58:36 2025

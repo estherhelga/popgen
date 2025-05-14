@@ -1,0 +1,8 @@
+PLINK v1.9.0-b.8 64-bit (22 Oct 2024)              cog-genomics.org/plink/1.9/
+(C) 2005-2024 Shaun Purcell, Christopher Chang   GNU General Public License v3
+Logging to chip_HTS_iSelect_HD_pruned.log.
+Options in effect:
+  --bfile chip_HTS_iSelect_HD chip_HTS_iSelect_HD_snps.snplist
+  --make-bed
+  --out chip_HTS_iSelect_HD_pruned
+

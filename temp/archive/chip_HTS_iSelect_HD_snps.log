@@ -1,0 +1,27 @@
+PLINK v1.9.0-b.8 64-bit (22 Oct 2024)
+Options in effect:
+  --bfile chip_HTS_iSelect_HD
+  --out chip_HTS_iSelect_HD_snps
+  --write-snplist
+
+Hostname: fe-open-01
+Working directory: /faststorage/project/populationgenomics/students/estherhelga/GWAS_project
+Start time: Fri May  2 16:27:33 2025
+
+Random number seed: 1746196053
+515439 MB RAM detected; reserving 257719 MB for main workspace.
+1376653 variants loaded from .bim file.
+587 people (287 males, 300 females) loaded from .fam.
+Using 1 thread (no multithreaded calculations invoked).
+Before main variant filters, 587 founders and 0 nonfounders present.
+Calculating allele frequencies... done.
+Warning: 35339 het. haploid genotypes present (see chip_HTS_iSelect_HD_snps.hh
+); many commands treat these as missing.
+Warning: Nonmissing nonmale Y chromosome genotype(s) present; many commands
+treat these as missing.
+Total genotyping rate is 0.427297.
+1376653 variants and 587 people pass filters and QC.
+Note: No phenotypes present.
+List of variant IDs written to chip_HTS_iSelect_HD_snps.snplist .
+
+End time: Fri May  2 16:27:42 2025

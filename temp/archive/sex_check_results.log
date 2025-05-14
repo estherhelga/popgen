@@ -1,0 +1,25 @@
+PLINK v1.9.0-b.8 64-bit (22 Oct 2024)
+Options in effect:
+  --bfile merged_data_step0_hhCleaned
+  --check-sex
+  --out sex_check_results
+
+Hostname: fe-open-01
+Working directory: /faststorage/project/populationgenomics/students/estherhelga/GWAS_project
+Start time: Wed May  7 17:14:33 2025
+
+Random number seed: 1746630873
+515439 MB RAM detected; reserving 257719 MB for main workspace.
+1325823 variants loaded from .bim file.
+1880 people (939 males, 864 females, 77 ambiguous) loaded from .fam.
+Ambiguous sex IDs written to sex_check_results.nosex .
+Using 1 thread (no multithreaded calculations invoked).
+Before main variant filters, 1880 founders and 0 nonfounders present.
+Calculating allele frequencies... done.
+Total genotyping rate is 0.440614.
+1325823 variants and 1880 people pass filters and QC.
+Note: No phenotypes present.
+--check-sex: 26317 Xchr and 0 Ychr variant(s) scanned, 301 problems detected.
+Report written to sex_check_results.sexcheck .
+
+End time: Wed May  7 17:14:53 2025

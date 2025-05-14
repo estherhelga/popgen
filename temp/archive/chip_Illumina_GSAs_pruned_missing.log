@@ -1,0 +1,27 @@
+PLINK v1.9.0-b.8 64-bit (22 Oct 2024)
+Options in effect:
+  --bfile chip_Illumina_GSAs_pruned
+  --missing
+  --out chip_Illumina_GSAs_pruned_missing
+
+Hostname: fe-open-01
+Working directory: /faststorage/project/populationgenomics/students/estherhelga/GWAS_project
+Start time: Fri May  2 16:50:00 2025
+
+Random number seed: 1746197400
+515439 MB RAM detected; reserving 257719 MB for main workspace.
+507262 variants loaded from .bim file.
+248 people (116 males, 132 females) loaded from .fam.
+Using 1 thread (no multithreaded calculations invoked).
+Before main variant filters, 248 founders and 0 nonfounders present.
+Calculating allele frequencies... done.
+Warning: 3342 het. haploid genotypes present (see
+chip_Illumina_GSAs_pruned_missing.hh ); many commands treat these as missing.
+Warning: Nonmissing nonmale Y chromosome genotype(s) present; many commands
+treat these as missing.
+Total genotyping rate is 0.975817.
+--missing: Sample missing data report written to
+chip_Illumina_GSAs_pruned_missing.imiss, and variant-based missing data report
+written to chip_Illumina_GSAs_pruned_missing.lmiss.
+
+End time: Fri May  2 16:50:03 2025

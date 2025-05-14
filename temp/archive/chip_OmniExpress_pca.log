@@ -1,0 +1,29 @@
+PLINK v1.9.0-b.8 64-bit (22 Oct 2024)
+Options in effect:
+  --bfile chip_OmniExpress_pruned_clean
+  --mind 0.05
+  --out chip_OmniExpress_pca
+  --pca 10
+
+Hostname: fe-open-01
+Working directory: /faststorage/project/populationgenomics/students/estherhelga/GWAS_project
+Start time: Tue May  6 18:37:37 2025
+
+Random number seed: 1746549457
+515439 MB RAM detected; reserving 257719 MB for main workspace.
+612572 variants loaded from .bim file.
+282 people (101 males, 118 females, 63 ambiguous) loaded from .fam.
+Ambiguous sex IDs written to chip_OmniExpress_pca.nosex .
+5 people removed due to missing genotype data (--mind).
+IDs written to chip_OmniExpress_pca.irem .
+Using up to 63 threads (change this with --threads).
+Before main variant filters, 277 founders and 0 nonfounders present.
+Calculating allele frequencies... done.
+Total genotyping rate in remaining samples is 0.997881.
+612572 variants and 277 people pass filters and QC.
+Note: No phenotypes present.
+Relationship matrix calculation complete.
+--pca: Results saved to chip_OmniExpress_pca.eigenval and
+chip_OmniExpress_pca.eigenvec .
+
+End time: Tue May  6 18:37:43 2025

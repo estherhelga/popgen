@@ -13,7 +13,7 @@ library(dplyr)
 ```{r}
 
 # Load the .eigenvec file from PLINK (output from Step 9)
-pca_eigenvectors <- read.table("final_pca_results_v2.eigenvec", header = FALSE, as.is = TRUE)
+pca_eigenvectors <- read.table("final_pca_results.eigenvec", header = FALSE, as.is = TRUE)
 num_pcs <- ncol(pca_eigenvectors) - 2 
 colnames(pca_eigenvectors) <- c("FID", "IID", paste0("PC", 1:num_pcs))
 pca_eigenvectors$FID <- as.character(pca_eigenvectors$FID)
@@ -24,7 +24,7 @@ N <- nrow(pca_eigenvectors)                       # number of individuals in you
 # It would be better to use: N <- nrow(pca_eigenvectors) 
 # This ensures N matches the actual number of samples used in the PCA calculation.
 
-pca_eigenvalues <- read.table("final_pca_results_v2.eigenval", header = FALSE)
+pca_eigenvalues <- read.table("final_pca_results.eigenval", header = FALSE)
 colnames(pca_eigenvalues) <- "Eigenvalue"
 
 # Each eigenvalue is a variance component; the sum of *all* N eigenvalues equals N
@@ -532,13 +532,91 @@ for (i in 3:9) {
 
 
 ```{r}
-library(data.table); library(ggplot2)
-w <- fread("pca_with_wts.eigenvec.var", header = FALSE)
-ggplot(w, aes(V2, abs(V5), colour = as.factor(V1))) +
-  geom_point(size = .6) + facet_wrap(~V1, scales = "free_x", nrow = 4) +
-  theme_bw() + labs(y="|loading|", x="Position") +
-  theme(legend.position = "none")
+# 6 SD's
+
+mean_pc1 <- mean(pca_with_metadata$PC1, na.rm = TRUE)
+sd_pc1 <- sd(pca_with_metadata$PC1, na.rm = TRUE)
+mean_pc2 <- mean(pca_with_metadata$PC2, na.rm = TRUE)
+sd_pc2 <- sd(pca_with_metadata$PC2, na.rm = TRUE)
+
+pc1_lower_bound <- mean_pc1 - (6 * sd_pc1)
+pc1_upper_bound <- mean_pc1 + (6 * sd_pc1)
+pc2_lower_bound <- mean_pc2 - (6 * sd_pc2)
+pc2_upper_bound <- mean_pc2 + (6 * sd_pc2)
+
+cat("PC1 Mean:", mean_pc1, "SD:", sd_pc1, "Bounds:", pc1_lower_bound, "to", pc1_upper_bound, "\n")
+cat("PC2 Mean:", mean_pc2, "SD:", sd_pc2, "Bounds:", pc2_lower_bound, "to", pc2_upper_bound, "\n")
+```
+```{r}
+outlier_pca_samples <- pca_with_metadata %>%
+  filter(PC1 < pc1_lower_bound | PC1 > pc1_upper_bound |
+         PC2 < pc2_lower_bound | PC2 > pc2_upper_bound)
+
+cat("\nNumber of potential PCA outliers identified:", nrow(outlier_pca_samples), "\n")
+if (nrow(outlier_pca_samples) > 0) {
+  cat("Details of PCA outliers:\n")
+  print(outlier_pca_samples %>% select(FID, IID, PC1, PC2, ChipType)) # Show some relevant info
+}
+```
+```{r}
+p_structure_bounds <- ggplot(pca_with_metadata, aes(x = PC1, y = PC2)) +
+  geom_point(alpha = 0.7, size = 2, color = "dodgerblue") +
+  geom_vline(xintercept = c(pc1_lower_bound, pc1_upper_bound), linetype = "dashed", color = "red") +
+  geom_hline(yintercept = c(pc2_lower_bound, pc2_upper_bound), linetype = "dashed", color = "red") +
+  labs(title = "PCA: PC1 vs PC2 with +/- 6SD Outlier Bounds",
+       x = paste0("PC1 (", pc1_var, "% variance)"), 
+       y = paste0("PC2 (", pc2_var, "% variance)")) +
+  theme_bw() +
+  annotate("text", x = pc1_lower_bound, y = max(pca_with_metadata$PC2, na.rm=T), label = "-6SD", vjust = -0.5, hjust = 0, color = "red", size=3) +
+  annotate("text", x = pc1_upper_bound, y = max(pca_with_metadata$PC2, na.rm=T), label = "+6SD", vjust = -0.5, hjust = 1, color = "red", size=3) +
+  annotate("text", y = pc2_lower_bound, x = max(pca_with_metadata$PC1, na.rm=T), label = "-6SD", hjust = 1.1, vjust = 0, color = "red", size=3, angle=90) +
+  annotate("text", y = pc2_upper_bound, x = max(pca_with_metadata$PC1, na.rm=T), label = "+6SD", hjust = 1.1, vjust = 1, color = "red", size=3, angle=90)
+
+print(p_structure_bounds)
 
 
+# --- Plot 2: PC1 vs PC2, Colored by Chip Type, with Outlier Bounds ---
+p_chip_bounds <- ggplot(pca_with_metadata, aes(x = PC1, y = PC2, color = ChipType)) +
+  geom_point(alpha = 0.7, size = 2) +
+  geom_vline(xintercept = c(pc1_lower_bound, pc1_upper_bound), linetype = "dashed", color = "darkgrey") +
+  geom_hline(yintercept = c(pc2_lower_bound, pc2_upper_bound), linetype = "dashed", color = "darkgrey") +
+  labs(title = "PCA: PC1 vs PC2 by Chip Type with +/- 6SD Outlier Bounds",
+       x = paste0("PC1 (", pc1_var, "% variance)"), 
+       y = paste0("PC2 (", pc2_var, "% variance)")) +
+  theme_bw() +
+  guides(color = guide_legend(title = "Chip Platform"))
+
+print(p_chip_bounds)
+
+
+# --- Plot 3: PC1 vs PC2, Colored by Mapped Phenotype, with Outlier Bounds ---
+# Filter out the 2 individuals with NA mapped phenotype for cleaner plotting if 'pca_cleaned_pheno' exists
+# Otherwise, ggplot will warn about removing rows with NAs for color.
+plot_data_pheno_bounds <- if(exists("pca_cleaned_pheno")) pca_cleaned_pheno else pca_with_metadata
+
+p_pheno_bounds <- ggplot(plot_data_pheno_bounds, aes(x = PC1, y = PC2, color = phenotype_labeled)) +
+  geom_point(alpha = 0.7, size = 2) +
+  geom_vline(xintercept = c(pc1_lower_bound, pc1_upper_bound), linetype = "dashed", color = "darkgrey") +
+  geom_hline(yintercept = c(pc2_lower_bound, pc2_upper_bound), linetype = "dashed", color = "darkgrey") +
+  labs(title = "PCA: PC1 vs PC2 by Mapped Eye Color with +/- 6SD Outlier Bounds",
+       x = paste0("PC1 (", pc1_var, "% variance)"), 
+       y = paste0("PC2 (", pc2_var, "% variance)")) +
+  theme_bw() +
+  guides(color = guide_legend(title = "Mapped Eye Color"))
+
+print(p_pheno_bounds)
+```
+
+
+```{r}
+if (nrow(outlier_pca_samples) > 0) {
+  write.table(outlier_pca_samples[, c("FID", "IID")], "pca_outliers_to_remove.txt",
+              row.names = FALSE, col.names = FALSE, quote = FALSE, sep = "\t")
+  cat("Written PCA outliers to pca_outliers_to_remove.txt\n")
+} else {
+  cat("No PCA outliers identified with +/- 6SD criteria on PC1/PC2.\n")
+  # Create an empty file if your PLINK script expects one
+  # file.create("pca_outliers_to_remove.txt") 
+}
 ```
 

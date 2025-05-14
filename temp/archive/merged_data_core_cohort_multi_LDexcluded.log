@@ -1,0 +1,29 @@
+PLINK v1.9.0-b.8 64-bit (22 Oct 2024)
+Options in effect:
+  --bfile merged_data_core_cohort_geno_filtered
+  --exclude range high_ld_regions_exclude.txt
+  --make-bed
+  --out merged_data_core_cohort_multi_LDexcluded
+
+Hostname: fe-open-01
+Working directory: /faststorage/project/populationgenomics/students/estherhelga/GWAS_project
+Start time: Fri May  9 18:57:16 2025
+
+Random number seed: 1746809836
+515439 MB RAM detected; reserving 257719 MB for main workspace.
+62652 variants loaded from .bim file.
+1680 people (843 males, 779 females, 58 ambiguous) loaded from .fam.
+Ambiguous sex IDs written to merged_data_core_cohort_multi_LDexcluded.nosex .
+--exclude range: 1516 variants excluded.
+--exclude range: 61136 variants remaining.
+Using 1 thread (no multithreaded calculations invoked).
+Before main variant filters, 1680 founders and 0 nonfounders present.
+Calculating allele frequencies... done.
+Total genotyping rate is 0.997804.
+61136 variants and 1680 people pass filters and QC.
+Note: No phenotypes present.
+--make-bed to merged_data_core_cohort_multi_LDexcluded.bed +
+merged_data_core_cohort_multi_LDexcluded.bim +
+merged_data_core_cohort_multi_LDexcluded.fam ... done.
+
+End time: Fri May  9 18:57:17 2025

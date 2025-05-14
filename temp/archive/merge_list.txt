@@ -1,0 +1,5 @@
+chip_HTS_iSelect_HD/chip_HTS_iSelect_HD_cleaned
+chip_Illumina_GSAs/chip_Illumina_GSAs_cleaned
+chip_OmniExpress/chip_OmniExpress_cleaned
+chip_OmniExpress_plus/chip_OmniExpress_plus_cleaned
+chip_unknown/chip_unknown_cleaned

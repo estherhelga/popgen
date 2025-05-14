@@ -1,0 +1,48 @@
+PLINK v1.9.0-b.8 64-bit (22 Oct 2024)
+Options in effect:
+  --bfile merged_data_step1_geno_final_noMHC
+  --indep-pairwise 50 5 0.2
+  --out ld_pruning_results
+
+Hostname: fe-open-01
+Working directory: /faststorage/project/populationgenomics/students/estherhelga/GWAS_project
+Start time: Thu May  8 14:47:41 2025
+
+Random number seed: 1746708461
+515439 MB RAM detected; reserving 257719 MB for main workspace.
+62091 variants loaded from .bim file.
+1864 people (939 males, 858 females, 67 ambiguous) loaded from .fam.
+Ambiguous sex IDs written to ld_pruning_results.nosex .
+Using 1 thread (no multithreaded calculations invoked).
+Before main variant filters, 1864 founders and 0 nonfounders present.
+Calculating allele frequencies... done.
+Total genotyping rate is 0.99783.
+62091 variants and 1864 people pass filters and QC.
+Note: No phenotypes present.
+Pruned 1660 variants from chromosome 1, leaving 3464.
+Pruned 1523 variants from chromosome 2, leaving 3358.
+Pruned 1320 variants from chromosome 3, leaving 2898.
+Pruned 1198 variants from chromosome 4, leaving 2681.
+Pruned 1139 variants from chromosome 5, leaving 2592.
+Pruned 1260 variants from chromosome 6, leaving 2579.
+Pruned 1061 variants from chromosome 7, leaving 2406.
+Pruned 1186 variants from chromosome 8, leaving 2296.
+Pruned 902 variants from chromosome 9, leaving 2044.
+Pruned 989 variants from chromosome 10, leaving 2190.
+Pruned 937 variants from chromosome 11, leaving 2164.
+Pruned 953 variants from chromosome 12, leaving 2189.
+Pruned 704 variants from chromosome 13, leaving 1599.
+Pruned 677 variants from chromosome 14, leaving 1489.
+Pruned 559 variants from chromosome 15, leaving 1361.
+Pruned 647 variants from chromosome 16, leaving 1444.
+Pruned 500 variants from chromosome 17, leaving 1340.
+Pruned 513 variants from chromosome 18, leaving 1333.
+Pruned 343 variants from chromosome 19, leaving 1048.
+Pruned 488 variants from chromosome 20, leaving 1174.
+Pruned 294 variants from chromosome 21, leaving 695.
+Pruned 234 variants from chromosome 22, leaving 660.
+Pruning complete.  19087 of 62091 variants removed.
+Marker lists written to ld_pruning_results.prune.in and
+ld_pruning_results.prune.out .
+
+End time: Thu May  8 14:47:42 2025

@@ -1,0 +1,31 @@
+PLINK v1.9.0-b.8 64-bit (22 Oct 2024)
+Options in effect:
+  --bfile gwas_data
+  --keep chip_group_Illumina_GSAs.txt
+  --make-bed
+  --out chip_Illumina_GSAs
+
+Hostname: fe-open-01
+Working directory: /faststorage/project/populationgenomics/students/estherhelga/GWAS_project
+Start time: Fri May  2 16:03:11 2025
+
+Random number seed: 1746194591
+515439 MB RAM detected; reserving 257719 MB for main workspace.
+1376653 variants loaded from .bim file.
+2009 people (992 males, 916 females, 101 ambiguous) loaded from .fam.
+Ambiguous sex IDs written to chip_Illumina_GSAs.nosex .
+--keep: 248 people remaining.
+Using 1 thread (no multithreaded calculations invoked).
+Before main variant filters, 248 founders and 0 nonfounders present.
+Calculating allele frequencies... done.
+Warning: 3592 het. haploid genotypes present (see chip_Illumina_GSAs.hh ); many
+commands treat these as missing.
+Warning: Nonmissing nonmale Y chromosome genotype(s) present; many commands
+treat these as missing.
+Total genotyping rate in remaining samples is 0.372204.
+1376653 variants and 248 people pass filters and QC.
+Note: No phenotypes present.
+--make-bed to chip_Illumina_GSAs.bed + chip_Illumina_GSAs.bim +
+chip_Illumina_GSAs.fam ... done.
+
+End time: Fri May  2 16:04:20 2025

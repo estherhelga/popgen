@@ -1,0 +1,28 @@
+PLINK v1.9.0-b.8 64-bit (22 Oct 2024)
+Options in effect:
+  --bfile chip_OmniExpress
+  --missing
+  --out chip_OmniExpress_missing
+
+Hostname: fe-open-01
+Working directory: /faststorage/project/populationgenomics/students/estherhelga/GWAS_project
+Start time: Fri May  2 16:20:53 2025
+
+Random number seed: 1746195653
+515439 MB RAM detected; reserving 257719 MB for main workspace.
+1376653 variants loaded from .bim file.
+291 people (105 males, 121 females, 65 ambiguous) loaded from .fam.
+Ambiguous sex IDs written to chip_OmniExpress_missing.nosex .
+Using 1 thread (no multithreaded calculations invoked).
+Before main variant filters, 291 founders and 0 nonfounders present.
+Calculating allele frequencies... done.
+Warning: 6366 het. haploid genotypes present (see chip_OmniExpress_missing.hh
+); many commands treat these as missing.
+Warning: Nonmissing nonmale Y chromosome genotype(s) present; many commands
+treat these as missing.
+Total genotyping rate is 0.497533.
+--missing: Sample missing data report written to
+chip_OmniExpress_missing.imiss, and variant-based missing data report written
+to chip_OmniExpress_missing.lmiss.
+
+End time: Fri May  2 16:21:03 2025
