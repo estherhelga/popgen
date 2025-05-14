@@ -350,7 +350,7 @@ Key Findings & Outcomes:
 
 
 
-# Global Marker Genotyping Call Rate (SNP missingness)
+# Global Marker Genotyping Call Rate (SNP missingness) REMOVE STEP !!
 
 For this, we used the following command, with the global missingness threshhold of 0.05. However, that only left us with aproxx 62 thousand variants out of the initial 1.3 million, which feels very strict. Thus, we want to try doing some R analysis to see if we can find a more appropreate threshold. 
 

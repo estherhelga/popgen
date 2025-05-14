@@ -19,11 +19,11 @@ colnames(pca_eigenvectors) <- c("FID", "IID", paste0("PC", 1:num_pcs))
 pca_eigenvectors$FID <- as.character(pca_eigenvectors$FID)
 pca_eigenvectors$IID <- as.character(pca_eigenvectors$IID)
 
-cat("Head of PCA Eigenvector Data (pca_eigenvectors):\n")
-print(head(pca_eigenvectors))
-cat("Dimensions:", dim(pca_eigenvectors), "\n\n")
+# This N seems to be manually set. Ideally, it should be dynamic.
+N <- nrow(pca_eigenvectors)                       # number of individuals in your cohort 
+# It would be better to use: N <- nrow(pca_eigenvectors) 
+# This ensures N matches the actual number of samples used in the PCA calculation.
 
-N <- nrow(pca_eigenvectors)                     # number of individuals in your cohort
 pca_eigenvalues <- read.table("final_pca_results_v2.eigenval", header = FALSE)
 colnames(pca_eigenvalues) <- "Eigenvalue"
 
@@ -36,10 +36,34 @@ pca_eigenvalues$PC_num <- seq_len(nrow(pca_eigenvalues))        # ← add this b
 pca_eigenvalues$VarianceExplained <- (pca_eigenvalues$Eigenvalue / N )* 100
 
 
+# This comment is a bit misleading in the context of PLINK's .eigenval file:
+# "Each eigenvalue is a variance component; the sum of *all* N eigenvalues equals N"
+# PLINK's .eigenval file only contains the top K eigenvalues (e.g., 10 if you did --pca 10).
+# The sum of THESE K eigenvalues does not necessarily equal N or the number of SNPs.
+# The relationship sum(eigenvalues) = N or sum(eigenvalues) = M (number of markers)
+# depends on how the covariance/correlation matrix was constructed and if ALL eigenvalues are summed.
+
+total_var <- N                    # You're setting total_var to the number of individuals.
+                                  # This is ONE common way to scale/interpret when you don't have all eigenvalues.
+                                  # Alternatively, if you wanted % variance relative to the sum of the *calculated*
+                                  # eigenvalues, total_var would be sum(pca_eigenvalues$Eigenvalue).
+                                  # Or, if aiming for % of variance relative to total markers,
+                                  # total_var would be the number of SNPs used in PCA (e.g., 43004).
+
+# This line is redundant because the next assignment to VarianceExplained overwrites it.
+# pca_eigenvalues$VarianceExplained <- pca_eigenvalues$Eigenvalue / total_var * 100 
+
+pca_eigenvalues$PC_num <- seq_len(nrow(pca_eigenvalues))        # This is good, adds PC numbers.
+
+# This is your operative calculation for VarianceExplained:
+pca_eigenvalues$VarianceExplained <- (pca_eigenvalues$Eigenvalue / N) * 100 # Using N (number of individuals) as the denominator.
+
+
 # Get variance for plot labels
 pc1_var <- round(pca_eigenvalues$VarianceExplained[1], 1)
 pc2_var <- round(pca_eigenvalues$VarianceExplained[2], 1)
 pc3_var <- round(pca_eigenvalues$VarianceExplained[3], 1) # Assuming at least 3 PCs
+pc3_var <- round(pca_eigenvalues$VarianceExplained[3], 1)
 
 ```
 
@@ -449,6 +473,60 @@ for (i in 3:9) {
 }
 
 cat("\n--- Finished generating multiple PC plots ---\n")
+
+```
+
+
+```{r}
+
+# --- Save All PCA Plots as PNGs ---
+output_dir <- "pca_plots"  # Set your desired output folder
+if (!dir.exists(output_dir)) dir.create(output_dir)
+
+# Helper to save plot
+save_pca_plot <- function(plot_obj, filename) {
+  ggsave(filename = file.path(output_dir, filename),
+         plot = plot_obj,
+         width = 7, height = 6, dpi = 300)
+}
+
+# Loop 1: Save PC1 vs PC2 through PC10
+x_pc_name <- "PC1"
+x_variance <- pc_variances[x_pc_name]
+
+for (i in 2:10) {
+  y_pc_name <- paste0("PC", i)
+  if (!y_pc_name %in% colnames(pca_with_metadata)) next
+  
+  y_variance <- pc_variances[y_pc_name]
+
+  p_chip <- create_pca_plot(pca_with_metadata, x_pc_name, y_pc_name, "ChipType", 
+                            x_variance, y_variance, "Colored by Chip Type", "Chip Platform")
+  save_pca_plot(p_chip, paste0("PCA_", x_pc_name, "_vs_", y_pc_name, "_ChipType.png"))
+
+  p_pheno <- create_pca_plot(pca_with_metadata, x_pc_name, y_pc_name, "phenotype_labeled", 
+                             x_variance, y_variance, "Colored by Mapped Eye Color", "Mapped Eye Color")
+  save_pca_plot(p_pheno, paste0("PCA_", x_pc_name, "_vs_", y_pc_name, "_EyeColor.png"))
+}
+
+# Loop 2: Save PCn vs PCn+1 (n = 3 through 9)
+for (i in 3:9) {
+  x_pc_name <- paste0("PC", i)
+  y_pc_name <- paste0("PC", i + 1)
+  if (!x_pc_name %in% colnames(pca_with_metadata) || !y_pc_name %in% colnames(pca_with_metadata)) next
+
+  x_variance <- pc_variances[x_pc_name]
+  y_variance <- pc_variances[y_pc_name]
+
+  p_chip <- create_pca_plot(pca_with_metadata, x_pc_name, y_pc_name, "ChipType", 
+                            x_variance, y_variance, "Colored by Chip Type", "Chip Platform")
+  save_pca_plot(p_chip, paste0("PCA_", x_pc_name, "_vs_", y_pc_name, "_ChipType.png"))
+
+  p_pheno <- create_pca_plot(pca_with_metadata, x_pc_name, y_pc_name, "phenotype_labeled", 
+                             x_variance, y_variance, "Colored by Mapped Eye Color", "Mapped Eye Color")
+  save_pca_plot(p_pheno, paste0("PCA_", x_pc_name, "_vs_", y_pc_name, "_EyeColor.png"))
+}
+
 
 ```
 
