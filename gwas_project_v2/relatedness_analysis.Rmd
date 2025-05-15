@@ -1,0 +1,208 @@
+---
+title: "Untitled"
+author: "Esther Helga"
+date: "2025-05-06"
+output: html_document
+---
+
+```{r}
+# Load and Inspect the `.genome` File:
+
+# Load the .genome file
+relatedness_data <- read.table("relatedness_check_results_no_outliers.genome", header = TRUE, stringsAsFactors = FALSE)
+
+# Display the first few rows and summary statistics
+head(relatedness_data)
+summary(relatedness_data$PI_HAT)
+hist(relatedness_data$PI_HAT, breaks = 100, main = "Distribution of PI_HAT", xlab = "PI_HAT (Proportion IBD)")
+```
+
+```{r}
+# Identify pairs exceeding the relatedness threshold
+# For example, to find pairs that are likely second-degree relatives or closer
+related_pairs <- relatedness_data[relatedness_data$PI_HAT > 0.1875, ]
+
+# Display the identified related pairs
+print(paste("Number of pairs with PI_HAT > 0.1875:", nrow(related_pairs)))
+if (nrow(related_pairs) > 0) {
+  print("Identified related pairs:")
+  print(related_pairs[, c("FID1", "IID1", "FID2", "IID2", "PI_HAT")])
+} else {
+  print("No pairs found with PI_HAT > 0.1875.")
+}
+```
+
+```{r}
+summary(related_pairs$PI_HAT)
+hist(related_pairs$PI_HAT, breaks=50, main="PI_HAT for Related Pairs")
+```
+```{r}
+# Count occurrences of each individual in the related pairs
+relation_counts <- table(c(related_pairs$IID1, related_pairs$IID2))
+summary(relation_counts)
+hist(relation_counts, breaks=50, main="Number of Relations per Individual (within the 229)")
+# Identify individuals with the most connections
+sort(relation_counts, decreasing = TRUE)[1:20]
+```
+
+
+```{r}
+individuals_to_remove_relatedness <- character(0)
+if (nrow(related_pairs) > 0) {
+  # A simple way for a few pairs: remove the second individual from each pair.
+  # WARNING: This is a simplification. If an individual appears in multiple pairs (e.g., IID1-IID2 and IID1-IID3),
+  # this naive approach might not be optimal. More robust algorithms exist for complex pedigrees.
+  # For a small number of independent pairs, it's usually fine.
+  
+  # Get unique IIDs to remove (e.g., IID2 from each pair)
+  # Ensure not to add duplicates if an IID is IID2 in multiple pairs already handled by IID1.
+  # A more robust way for complex scenarios involves graph-based approaches or iterative removal.
+  
+  # For now, let's list all unique individuals appearing as IID2 in the identified pairs
+  # and then manually curate or use a more systematic approach if complex.
+  # temp_removal_list <- unique(related_pairs$IID2) # A starting point
+
+  # A practical strategy for a course project IF not too many and not too complex:
+  # 1. List all unique individuals involved:
+  all_related_individuals <- unique(c(related_pairs$IID1, related_pairs$IID2))
+  
+  # 2. Create a file `related_individuals_to_remove.txt` with FID and IID.
+  #    You need to decide which one from each pair. If sample A is related to B and C,
+  #    removing A might resolve both.
+  #    PLINK's option to generate a maximal set of unrelated individuals is useful here, but harder to script simply.
+  
+  # For now, let's assume you manually inspect `related_pairs` and decide.
+  # Example: if you decide to remove IID_X and IID_Y based on inspection:
+  # individuals_to_remove_df <- data.frame(
+  #   FID = c("FID_X", "FID_Y"), # Assuming FIDs are same as IIDs or look them up
+  #   IID = c("IID_X", "IID_Y")
+  # )
+  # write.table(individuals_to_remove_df, "related_individuals_to_remove.txt",
+  #             row.names = FALSE, col.names = FALSE, quote = FALSE, sep = "\t")
+  # print("Manually curated list of related individuals to remove needs to be created as related_individuals_to_remove.txt")
+
+  # A simple automated approach (less optimal but works for non-complex cases):
+  # Iteratively remove individuals until no pairs above threshold remain.
+  # For this example, we will just list IID2s. This is often sufficient if relationships aren't too tangled.
+  # Ensure to get their FIDs too.
+  
+  # Create a data frame for removal
+  # We need FID and IID. Assuming FID is the same as IID for this example, or you need to merge with .fam
+  # For simplicity, we'll just use the IID2 from each pair for removal.
+  # This is NOT ROBUST for complex networks of relatedness.
+  
+  # If you have many related pairs, a more systematic approach:
+  # Often, one might create a list of all individuals involved and then use PLINK's
+  # `--filter-related` or other tools to select a maximal set of unrelated individuals.
+  # For this project, if you find related pairs:
+  # 1. Note how many pairs (e.g. `related_pairs` dataframe in R).
+  # 2. If it's a small number (e.g., < 5-10 distinct individuals involved),
+  #    manually create `related_individuals_to_remove.txt` containing FID and IID
+  #    of individuals to remove, ensuring you break all pairs > 0.1875.
+  #    Prioritize removing individuals with more missing data if known.
+  # Example:
+  # Pair 1: A-B
+  # Pair 2: C-D
+  # Pair 3: A-E
+  # Removal candidates: B, D, E (if A is kept). Or A, D (if B, E, C are kept).
+  # Aim to remove the minimum number of individuals to break all high-IBD links.
+  
+  # Let's print a message to guide manual creation:
+  print("ACTION REQUIRED: Inspect 'related_pairs' dataframe.")
+  print("Manually create a file named 'related_individuals_to_remove.txt'.")
+  print("This file should contain two columns (FID and IID, tab-separated, no header)")
+  print("listing one individual from each related pair (PI_HAT > 0.1875) to be removed.")
+  print("Aim to remove the minimum number of individuals to break all such relationships.")
+  
+  # Placeholder for the script to proceed if the file is created:
+  # if (file.exists("related_individuals_to_remove.txt")) {
+  #   print("related_individuals_to_remove.txt found.")
+  # } else {
+  #   print("related_individuals_to_remove.txt NOT found. Please create it to proceed with PLINK removal.")
+  # }
+}
+```
+```{r}
+# Load the .genome file
+relatedness_data <- read.table("relatedness_check_results_no_outliers.genome", header = TRUE, stringsAsFactors = FALSE)
+# Filter for pairs above the threshold
+high_related_pairs <- relatedness_data[relatedness_data$PI_HAT > 0.1875, ]
+
+if(nrow(high_related_pairs) > 0) {
+  print(paste("Number of pairs with PI_HAT > 0.1875:", nrow(high_related_pairs)))
+  
+  # Get all unique individuals involved in these high-relatedness pairs
+  ids_in_high_pairs <- unique(c(high_related_pairs$IID1, high_related_pairs$IID2))
+  
+  # Create a data frame to hold individuals to keep/remove
+  # Initially, assume we keep everyone, then decide who to remove
+  people_to_process <- data.frame(
+    IID = ids_in_high_pairs,
+    FID = sapply(ids_in_high_pairs, function(id) {
+      fid1 <- high_related_pairs$FID1[high_related_pairs$IID1 == id]
+      fid2 <- high_related_pairs$FID2[high_related_pairs$IID2 == id]
+      return(c(fid1, fid2)[1]) # Take the first FID found for this IID
+    }),
+    keep = TRUE, # Flag to mark if we keep or remove
+    num_rels = 0, # Number of remaining relations
+    stringsAsFactors = FALSE
+  )
+
+  # Calculate current number of relations for each person
+  for(i in 1:nrow(people_to_process)) {
+    iid <- people_to_process$IID[i]
+    people_to_process$num_rels[i] <- sum(high_related_pairs$IID1 == iid | high_related_pairs$IID2 == iid)
+  }
+  
+  individuals_to_remove_list <- character(0)
+  
+  # Iteratively remove individuals with most connections from high_related_pairs
+  temp_high_related_pairs <- high_related_pairs
+  
+  while(nrow(temp_high_related_pairs) > 0) {
+    if (nrow(people_to_process) == 0 || sum(people_to_process$keep) == 0) break # Safety break
+
+    # Recalculate num_rels for *kept* individuals based on *remaining* pairs
+    current_kept_ids <- people_to_process$IID[people_to_process$keep]
+    
+    # If no one is kept, something is wrong, or all related individuals are marked for removal already.
+    if(length(current_kept_ids) == 0) break
+
+    # Count relations for currently kept people within the remaining problematic pairs
+    rel_counts_kept <- table(c(temp_high_related_pairs$IID1[temp_high_related_pairs$IID1 %in% current_kept_ids | temp_high_related_pairs$IID2 %in% current_kept_ids], 
+                               temp_high_related_pairs$IID2[temp_high_related_pairs$IID1 %in% current_kept_ids | temp_high_related_pairs$IID2 %in% current_kept_ids]))
+    
+    # Filter this to only include people we are still considering keeping
+    rel_counts_kept <- rel_counts_kept[names(rel_counts_kept) %in% current_kept_ids]
+
+    if(length(rel_counts_kept) == 0) break # No more relations among kept people
+
+    # Find person with max relations among those still marked 'keep'
+    # and involved in remaining temp_high_related_pairs
+    person_to_remove_iid <- names(rel_counts_kept)[which.max(rel_counts_kept)]
+    
+    # Mark for removal and add to removal list
+    people_to_process$keep[people_to_process$IID == person_to_remove_iid] <- FALSE
+    individuals_to_remove_list <- c(individuals_to_remove_list, person_to_remove_iid)
+    
+    # Remove all pairs involving this person from temp_high_related_pairs
+    temp_high_related_pairs <- temp_high_related_pairs[temp_high_related_pairs$IID1 != person_to_remove_iid & temp_high_related_pairs$IID2 != person_to_remove_iid, ]
+  }
+  
+  individuals_to_remove_df <- people_to_process[people_to_process$IID %in% individuals_to_remove_list, c("FID", "IID")]
+  
+  if (nrow(individuals_to_remove_df) > 0) {
+    write.table(individuals_to_remove_df, "related_individuals_to_remove.txt",
+                row.names = FALSE, col.names = FALSE, quote = FALSE, sep = "\t")
+    print(paste("Written", nrow(individuals_to_remove_df), "individuals to related_individuals_to_remove.txt"))
+  } else {
+    print("No individuals identified for removal by the greedy algorithm (this might indicate an issue or no relatedness).")
+  }
+
+} else {
+  print("No pairs found with PI_HAT > 0.1875. No related individuals to remove.")
+  # Create an empty file if it's part of an automated pipeline that expects the file
+  # file.create("related_individuals_to_remove.txt")
+}
+```
+

@@ -480,7 +480,7 @@ cat("\n--- Finished generating multiple PC plots ---\n")
 ```{r}
 
 # --- Save All PCA Plots as PNGs ---
-output_dir <- "pca_plots"  # Set your desired output folder
+output_dir <- "pca_plots_no_omniexpress"  # Set your desired output folder
 if (!dir.exists(output_dir)) dir.create(output_dir)
 
 # Helper to save plot

@@ -1,0 +1,20 @@
+---
+title: "Untitled"
+author: "Esther Helga"
+date: "2025-05-15"
+output: html_document
+---
+
+```{r}
+
+# In R
+imiss_data <- read.table("final_cohort_imissing_stats.imiss", header = TRUE)
+summary(imiss_data$F_MISS) # F_MISS is the proportion of missing SNPs for each individual
+hist(imiss_data$F_MISS, breaks = 50, main = "Distribution of Individual Missingness (F_MISS)", xlab = "Proportion of Missing SNPs")
+# How many individuals have F_MISS > 0.05?
+sum(imiss_data$F_MISS > 0.05)
+# How many individuals have F_MISS > 0.10?
+sum(imiss_data$F_MISS > 0.85)
+
+```
+

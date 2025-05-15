@@ -1,25 +1,25 @@
 PLINK v1.9.0-b.8 64-bit (22 Oct 2024)
 Options in effect:
-  --bfile merged_data_core_cohort
+  --bfile merged_data_core_cohort_hhcleaned
   --check-sex
   --out core_cohort_sex_check_results
 
 Hostname: fe-open-01
 Working directory: /faststorage/project/populationgenomics/students/estherhelga/GWAS_project
-Start time: Thu May  8 19:01:31 2025
+Start time: Thu May 15 17:44:55 2025
 
-Random number seed: 1746723691
+Random number seed: 1747323895
 515439 MB RAM detected; reserving 257719 MB for main workspace.
-1325823 variants loaded from .bim file.
-1696 people (843 males, 785 females, 68 ambiguous) loaded from .fam.
+1306452 variants loaded from .bim file.
+1449 people (758 males, 679 females, 12 ambiguous) loaded from .fam.
 Ambiguous sex IDs written to core_cohort_sex_check_results.nosex .
 Using 1 thread (no multithreaded calculations invoked).
-Before main variant filters, 1696 founders and 0 nonfounders present.
+Before main variant filters, 1449 founders and 0 nonfounders present.
 Calculating allele frequencies... done.
-Total genotyping rate is 0.440111.
-1325823 variants and 1696 people pass filters and QC.
+Total genotyping rate is 0.44298.
+1306452 variants and 1449 people pass filters and QC.
 Note: No phenotypes present.
---check-sex: 26178 Xchr and 0 Ychr variant(s) scanned, 267 problems detected.
+--check-sex: 26178 Xchr and 0 Ychr variant(s) scanned, 20 problems detected.
 Report written to core_cohort_sex_check_results.sexcheck .
 
-End time: Thu May  8 19:01:32 2025
+End time: Thu May 15 17:44:56 2025

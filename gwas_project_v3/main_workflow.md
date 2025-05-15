@@ -365,10 +365,10 @@ This file specifies the basenames of the PLINK filesets to be merged (one per li
 
 echo "chip_HTS_iSelect_HD/chip_HTS_iSelect_HD_cleaned" > merge_list.txt
 echo "chip_Illumina_GSAs/chip_Illumina_GSAs_cleaned" >> merge_list.txt
-echo "chip_OmniExpress/chip_OmniExpress_cleaned" >> merge_list.txt
 echo "chip_OmniExpress_plus/chip_OmniExpress_plus_cleaned" >> merge_list.txt
 echo "chip_unknown/chip_unknown_cleaned" >> merge_list.txt
 
+[REMOVED] echo "chip_OmniExpress/chip_OmniExpress_cleaned" >> merge_list.txt
 
 Verify the contents: cat merge_list.txt
 
@@ -382,8 +382,7 @@ plink --merge-list merge_list.txt \
 A new PLINK binary fileset: allchips_qc1_merge.bed/bim/fam.
 
 This dataset contains:
-Individuals: 1880 (sum of individuals from all cleaned chip filesets).
-Variants: 1,325,823 (union of all unique SNPs from the cleaned chip filesets).
+1306452 variants and 1600 people pass filters and QC.
 The associated merged_data_step0.log file should be checked for any merge warnings (e.g., regarding SNP strand or position mismatches).
 
 # Making sure every reported eye color has genotype data, and that every genotype data has a reported eye color; if only has one = removed
@@ -438,14 +437,14 @@ plink --bfile allchips_qc1_merged \
       --make-bed \
       --out merged_data_core_cohort
 
-*1696* people remaining.
-
 *Outcome*
 
-A new PLINK binary fileset: merged_data_core_cohort.bed/bim/fam.
-This dataset now contains only individuals for whom both original genetic data and original phenotype data were available (1696 individuals).
+*1306452 variants and 1449 people pass filters and QC.*
 
-The number of SNPs in merged_data_core_cohort.bim will be the same as in allchips_qc1_merged.bim (1,325,823 variants), as only individuals were filtered at this stage.
+A new PLINK binary fileset: merged_data_core_cohort.bed/bim/fam.
+This dataset now contains only individuals for whom both original genetic data and original phenotype data were available.
+
+The number of SNPs in merged_data_core_cohort.bim will be the same as in allchips_qc1_merged.bim, as only individuals were filtered at this stage.
 
 This merged_data_core_cohort fileset forms the basis for all subsequent QC and analysis steps.
 
@@ -466,10 +465,13 @@ plink --bfile merged_data_core_cohort \
       --out merged_data_core_cohort_hhcleaned
 
 *Outcome*
+
+*1306452 variants and 1449 people pass filters and QC.*
+
 A new PLINK binary fileset: merged_data_core_cohort_hhcleaned.bed/bim/fam.
 This dataset will have the same number of individuals and SNPs as the input (merged_data_core_cohort).
 
-The merged_data_core_cohort_hhcleaned.log file will indicate if any heterozygous haploid genotypes were found and set to missing. (You would have seen warnings about this in the log of the initial merge that created allchips_qc1_merged if they were present across the full set of 1880 individuals. This step now specifically cleans them within your defined core cohort of 1696 individuals).
+The merged_data_core_cohort_hhcleaned.log file will indicate if any heterozygous haploid genotypes were found and set to missing. (You would have seen warnings about this in the log of the initial merge that created allchips_qc1_merged if they were present across the full set of 1880 individuals. This step now specifically cleans them within your defined core cohort of 1449 individuals).
 This merged_data_core_cohort_hhcleaned fileset is now ready for sex inference.
 
 # Sex Inference (Sex Check)
@@ -502,7 +504,9 @@ Load iid_to_chip.txt (mapping IIDs to their original chip platform).
 Merge these two dataframes.
 
 Key Findings from R Analysis (to be summarized from your actual R output):
-OmniExpress Chip: Confirmed that all individuals genotyped on chip_OmniExpress (e.g., N=~280, use your actual count) had F=NaN and SNPSEX=0 (undetermined). This was previously traced back to the chip_OmniExpress_cleaned.bim file containing no X or Y chromosome SNPs.
+
+[OMNIEXPRESS WAS REMOVED] OmniExpress Chip: Confirmed that all individuals genotyped on chip_OmniExpress (e.g., N=~280, use your actual count) had F=NaN and SNPSEX=0 (undetermined). This was previously traced back to the chip_OmniExpress_cleaned.bim file containing no X or Y chromosome SNPs.
+
 Non-OmniExpress Samples:
 Visualize the F-statistic distribution for these samples.
 Define F-statistic thresholds to categorize individuals as genetically male (e.g., F > 0.8), female (e.g., F < 0.2), or ambiguous (e.g., 0.2 ≤ F ≤ 0.8 or F = NaN). Specify the exact thresholds you decided upon.
@@ -518,10 +522,11 @@ plink --bfile merged_data_core_cohort_hhcleaned \
       --make-bed \
       --out merged_data_core_cohort_sexcleaned
 
+--remove: 1433 people remaining.
 
 *Final Decisions and Rationale for Sex Handling:*
 
-OmniExpress Samples: Due to the confirmed absence of X/Y chromosome SNPs on the chip_OmniExpress platform after per-chip cleaning, genetic sex could not be inferred for these individuals. These individuals (e.g., N=~280) will be retained in the dataset. Their sex will be treated as "unknown" (typically coded '0' in the .fam file) for the GWAS. The PLINK flag --allow-no-sex will be utilized during association testing to include them. This decision prioritizes sample size for the autosomal eye color analysis.
+[OMNIEXPRESS WAS REMOVED] OmniExpress Samples: Due to the confirmed absence of X/Y chromosome SNPs on the chip_OmniExpress platform after per-chip cleaning, genetic sex could not be inferred for these individuals. These individuals (e.g., N=~280) will be retained in the dataset. Their sex will be treated as "unknown" (typically coded '0' in the .fam file) for the GWAS. The PLINK flag --allow-no-sex will be utilized during association testing to include them. This decision prioritizes sample size for the autosomal eye color analysis.
 
 Non-OmniExpress Samples: Individuals from other chip platforms whose F-statistic was NaN or fell into a pre-defined ambiguous range (e.g., between 0.2 and 0.8, state your thresholds) were removed. This step acts as an additional quality control measure, as unresolved sex based on X-chromosome data (for chips that do have X-SNPs) can sometimes indicate broader sample quality issues.
 
@@ -534,7 +539,7 @@ A new PLINK binary fileset: merged_data_core_cohort_sexcleaned.bed/bim/fam.
 This dataset contains individuals from the core cohort after removing a small number of non-OmniExpress samples with problematic genetic sex inference. All OmniExpress samples are retained. The sex codes in the .fam file reflect the best available information (genetically inferred for some, original PEDSEX, or '0' for unknown/OmniExpress).
 This fileset is now ready for global SNP-level QC.
 
-*1680 people remaining.*
+*1433 people remaining.*
 
 # [OMITTED] Global Marker Genotyping Call Rate (SNP missingness)
 
@@ -597,8 +602,8 @@ plink --bfile merged_data_core_cohort_sexcleaned \
 *Outcome* of Part 1:
 A new PLINK fileset: merged_data_core_cohort_LDregions_excluded.bed/bim/fam.
 This dataset has SNPs from the specified complex LD regions removed. The merged_data_core_cohort_LDregions_excluded.log file details the number of SNPs excluded.
---exclude range: 43898 variants excluded.
---exclude range: 1281925 variants remaining.
+--exclude range: 43199 variants excluded.
+--exclude range: 1263253 variants remaining.
 
 *Part 2: Window-Based LD Pruning*
 
@@ -616,33 +621,33 @@ plink --bfile merged_data_core_cohort_LDregions_excluded \
 Parameters: 50 (window size in SNPs), 5 (step size for window), 0.2 (r² threshold for pruning).
 Output files: core_cohort_LDregions_excluded_pruning_results.prune.in (list of SNPs to keep) and .prune.out (list of SNPs removed).
 From the log (core_cohort_LDregions_excluded_pruning_results.log):
-Pruned 75427 variants from chromosome 1, leaving 28547.
-Pruned 73693 variants from chromosome 2, leaving 27034.
-Pruned 63387 variants from chromosome 3, leaving 24060.
-Pruned 56823 variants from chromosome 4, leaving 22950.
-Pruned 54453 variants from chromosome 5, leaving 21449.
-Pruned 53544 variants from chromosome 6, leaving 20218.
-Pruned 52391 variants from chromosome 7, leaving 19551.
-Pruned 46982 variants from chromosome 8, leaving 17381.
-Pruned 40433 variants from chromosome 9, leaving 14370.
-Pruned 49763 variants from chromosome 10, leaving 18959.
-Pruned 46936 variants from chromosome 11, leaving 17392.
-Pruned 44216 variants from chromosome 12, leaving 16605.
-Pruned 34893 variants from chromosome 13, leaving 12870.
-Pruned 29732 variants from chromosome 14, leaving 11293.
-Pruned 28404 variants from chromosome 15, leaving 10706.
-Pruned 29218 variants from chromosome 16, leaving 11818.
-Pruned 26992 variants from chromosome 17, leaving 10781.
-Pruned 26326 variants from chromosome 18, leaving 10582.
-Pruned 18334 variants from chromosome 19, leaving 8274.
-Pruned 21886 variants from chromosome 20, leaving 8993.
-Pruned 12522 variants from chromosome 21, leaving 5136.
-Pruned 13316 variants from chromosome 22, leaving 5562.
+Pruned 74349 variants from chromosome 1, leaving 28058.
+Pruned 72801 variants from chromosome 2, leaving 26547.
+Pruned 62596 variants from chromosome 3, leaving 23694.
+Pruned 56187 variants from chromosome 4, leaving 22600.
+Pruned 53705 variants from chromosome 5, leaving 21026.
+Pruned 52901 variants from chromosome 6, leaving 19883.
+Pruned 51643 variants from chromosome 7, leaving 19257.
+Pruned 46216 variants from chromosome 8, leaving 17136.
+Pruned 39725 variants from chromosome 9, leaving 14112.
+Pruned 48994 variants from chromosome 10, leaving 18597.
+Pruned 46165 variants from chromosome 11, leaving 17142.
+Pruned 43522 variants from chromosome 12, leaving 16309.
+Pruned 34373 variants from chromosome 13, leaving 12593.
+Pruned 29329 variants from chromosome 14, leaving 11123.
+Pruned 28026 variants from chromosome 15, leaving 10538.
+Pruned 28816 variants from chromosome 16, leaving 11589.
+Pruned 26642 variants from chromosome 17, leaving 10521.
+Pruned 25854 variants from chromosome 18, leaving 10424.
+Pruned 18030 variants from chromosome 19, leaving 8071.
+Pruned 21635 variants from chromosome 20, leaving 8820.
+Pruned 12324 variants from chromosome 21, leaving 5081.
+Pruned 13092 variants from chromosome 22, leaving 5484.
 Pruned 25181 variants from chromosome 23, leaving 6937.
 Pruned 1412 variants from chromosome 24, leaving 220.
 Pruned 72 variants from chromosome 25, leaving 60.
 Pruned 3218 variants from chromosome 26, leaving 623.
-Pruning complete.  929554 of 1281925 variants removed.
+Pruning complete.  916808 of 1263253 variants removed.
 
 Create the Final LD-Pruned Dataset:
 This command uses the list of SNPs to keep to create the new, pruned fileset.
@@ -653,11 +658,11 @@ plink --bfile merged_data_core_cohort_LDregions_excluded \
       --make-bed \
       --out merged_data_final_pruned_for_pca
 
+*--extract: 346445 variants remaining.*
+
 Overall Outcome of LD Pruning:
 A new PLINK binary fileset: merged_data_final_pruned_for_pca.bed/bim/fam.
 This dataset contains all individuals from merged_data_core_cohort_LDregions_excluded but only a subset of SNPs that are in approximate linkage equilibrium and outside the specified major complex LD regions.
-
---extract: 352371 variants remaining.
 
 *Explanation for large pruning ratio (~72%)*
 
@@ -690,7 +695,7 @@ To generate PCs for use as covariates in the downstream GWAS to control for popu
 
 *Methodology - PCA Calculation*
 Input Dataset for PCA:
-The LD-pruned dataset merged_data_final_pruned_for_pca.bed/bim/fam (containing 1680 individuals and ~352,371 SNPs after LD pruning and exclusion of complex LD regions) was used.
+The LD-pruned dataset merged_data_final_pruned_for_pca.bed/bim/fam (containing xxxx individuals and xxx.xxx SNPs after LD pruning and exclusion of complex LD regions) was used.
 
 Run PCA using PLINK:
 
@@ -780,7 +785,7 @@ if (nrow(outlier_pca_samples) > 0) {
 
 Remove Outliers using PLINK:
 You need to decide which dataset to remove them from. This should be a dataset before LD pruning for PCA, but after your core cohort definition and sex cleaning, because you want these outliers removed from the set that will eventually go into MAF/HWE filtering and GWAS.
-A good candidate would be merged_data_core_cohort_geno_filtered (the one that has ~62k SNPs after global geno, or if you skipped global geno, then merged_data_core_cohort_sexcleaned which has ~1.28M SNPs).
+A good candidate would be merged_data_core_cohort_sexcleaned (which has ~1.28M SNPs).
 Let's assume you apply it to merged_data_core_cohort_geno_filtered (if you kept that global --geno step) or merged_data_core_cohort_sexcleaned (if you omitted the global --geno). For consistency with your latest decision to omit global --geno before LD pruning, let's use merged_data_core_cohort_sexcleaned.
 
 Previous output was merged_data_core_cohort_sexcleaned
@@ -789,112 +794,266 @@ Input for this PLINK command:
 
 INPUT_BFILE_FOR_OUTLIER_REMOVAL="merged_data_core_cohort_sexcleaned"
 
-plink --bfile ${INPUT_BFILE_FOR_OUTLIER_REMOVAL} \
+plink --bfile merged_data_core_cohort_sexcleaned \
       --remove pca_outliers_to_remove.txt \
       --make-bed \
-      --out data_after_pca_outlier_removal
+      --out merged_data_core_cohort_no_pca_outliers
+
+*1306452 variants and 1412 people pass filters and QC.*
 
 IMPORTANT: If you remove PCA outliers, you would then need to re-run the exclusion of high LD regions and LD pruning, and then re-run PCA on this newly filtered data_after_pca_outlier_removal dataset to get your final PCs for use as covariates. This is because removing individuals can change the LD structure and thus the PCs.
-  
+
+*merged_data_core_cohort_no_pca_outliers*
 
 
+# Second LD pruning post PCA outlier Removal
 
-  
-  
-  We can do these two "together" or at the same time, as they are close together. PCA is the primary tool used to visualize both popuæation stratification and potential batch effects. 
-    - Population Stratification: PCA identifies the major axes of genetic variation in your dataset. These axes often correspond to ancestral differences or population substructure.
-    - Batch Effect Visualization: By plotting the samples on the principal components (e.g., PC1 vs PC2) and then coloring the points by a suspected batch variable (like 'chip type' in your case), you can visually assess if samples from different batches cluster separately along these PCs. If they do, and this separation isn't easily explained by known population structure, it suggests a batch effect.
-
-    Using PLINK for our calculations: 
-      plink --bfile merged_data_step2_pruned \
-      --pca 10 \
-      --out pca_results_initial
+*Purpose*
+After removing PCA outliers from the `merged_data_core_cohort_sexcleaned` dataset (resulting in `merged_data_core_cohort_no_pca_outliers`), it is necessary to re-derive Principal Components (PCs) that accurately reflect the population structure of this refined cohort. To do this, we need to again prepare an appropriate subset of SNPs that are in approximate linkage equilibrium. This involves re-applying the exclusion of known complex LD regions and then performing window-based LD pruning on the outlier-removed dataset.
 
 
-      If we feel like looking at more than the topp 10 PCs, we can change the --pca command. 
+*Method*
 
-      --out pca_results_initial: Basename for the output files. PLINK will create:
-        pca_results_initial.eigenvec: This is the most important file. It contains the principal components (eigenvectors) for each individual. It will have columns like: FID, IID, PC1, PC2, ..., PC10.
-        pca_results_initial.eigenval: Contains the eigenvalues for each component, which indicate the amount of variance explained by each PC. Useful for creating a scree plot (though not strictly required by your project description for the main plot).
-        pca_results_initial.log: Standard PLINK log.
+This process mirrors the initial LD pruning but is applied to the dataset that has had PCA outliers removed.
+
+*Part 1: Exclusion of Known Long-Range High-LD / Inversion Regions (on Outlier-Removed Data)*
+
+Rationale: To mitigate the disproportionate influence of known complex genomic regions (MHC, inversions, LCT, etc.) on the subsequent PCA calculation for the refined cohort.
+
+To perform this sub-step:
+Ensure the `high_ld_regions_exclude.txt` file (listing chromosome, start, end positions for regions to exclude) is available.
+
+Apply Exclusion with PLINK:
+Input file: `merged_data_core_cohort_no_pca_outliers.bed/bim/fam` (This is your dataset after removing individuals identified as PCA outliers from `merged_data_core_cohort_sexcleaned`).
+
+plink --bfile merged_data_core_cohort_no_pca_outliers \
+      --exclude range high_ld_regions_exclude.txt \
+      --make-bed \
+      --out merged_data_core_cohort_no_pca_outliers_LDregions_excluded
+
+*1263253 variants and 1412 people pass filters and QC.*
+
+*Outcome of Part 1:*
+A new PLINK fileset: `merged_data_core_cohort_no_pca_outliers_LDregions_excluded.bed/bim/fam`.
+This dataset has SNPs from the specified complex LD regions removed from the outlier-filtered cohort. The `merged_data_core_cohort_no_pca_outliers_LDregions_excluded.log` file will detail the number of SNPs excluded. Check this log to confirm (it should be a similar number of SNPs excluded as in the first LD region exclusion, but applied to the slightly smaller set of individuals).
+
+*Part 2: Window-Based LD Pruning (on Outlier-Removed, Region-Excluded Data)*
+
+Rationale: To further refine the SNP set by removing SNPs that are in LD with nearby markers, ensuring the SNPs used for the new PCA are relatively independent.
+
+To perform this sub-step:
+Identify SNPs for Pruning (`--indep-pairwise`):
+This command generates a list of SNPs to keep based on the specified LD parameters.
+Input file: `merged_data_core_cohort_no_pca_outliers_LDregions_excluded.bed/bim/fam`
+
+plink --bfile merged_data_core_cohort_no_pca_outliers_LDregions_excluded \
+      --indep-pairwise 50 5 0.2 \
+      --out core_cohort_no_pca_outliers_LDregions_excluded_pruning_results
+
+Pruned 74901 variants from chromosome 1, leaving 27506.
+Pruned 73314 variants from chromosome 2, leaving 26034.
+Pruned 63077 variants from chromosome 3, leaving 23213.
+Pruned 56567 variants from chromosome 4, leaving 22220.
+Pruned 54033 variants from chromosome 5, leaving 20698.
+Pruned 53236 variants from chromosome 6, leaving 19548.
+Pruned 52049 variants from chromosome 7, leaving 18851.
+Pruned 46526 variants from chromosome 8, leaving 16826.
+Pruned 40010 variants from chromosome 9, leaving 13827.
+Pruned 49344 variants from chromosome 10, leaving 18247.
+Pruned 46500 variants from chromosome 11, leaving 16807.
+Pruned 43865 variants from chromosome 12, leaving 15966.
+Pruned 34651 variants from chromosome 13, leaving 12315.
+Pruned 29543 variants from chromosome 14, leaving 10909.
+Pruned 28229 variants from chromosome 15, leaving 10335.
+Pruned 29087 variants from chromosome 16, leaving 11318.
+Pruned 26836 variants from chromosome 17, leaving 10327.
+Pruned 26076 variants from chromosome 18, leaving 10202.
+Pruned 18195 variants from chromosome 19, leaving 7906.
+Pruned 21810 variants from chromosome 20, leaving 8645.
+Pruned 12454 variants from chromosome 21, leaving 4951.
+Pruned 13178 variants from chromosome 22, leaving 5398.
+Pruned 25300 variants from chromosome 23, leaving 6818.
+Pruned 1420 variants from chromosome 24, leaving 212.
+Pruned 74 variants from chromosome 25, leaving 58.
+Pruned 3227 variants from chromosome 26, leaving 614.
+Pruning complete.  923502 of 1263253 variants removed.
+
+Parameters: `50` (window size in SNPs), `5` (step size for window), `0.2` (r² threshold for pruning).
+Output files:
+`core_cohort_no_pca_outliers_LDregions_excluded_pruning_results.prune.in` (list of SNPs to keep)
+`core_cohort_no_pca_outliers_LDregions_excluded_pruning_results.prune.out` (list of SNPs removed)
+`core_cohort_no_pca_outliers_LDregions_excluded_pruning_results.log` (PLINK log file).
+*Action: Review this log file to see the number of variants pruned per chromosome and the total number remaining. Compare these numbers to your first LD pruning run; they should be similar, but potentially slightly different due to the removal of outlier individuals.*
+
+Create the Final LD-Pruned Dataset for Re-PCA:
+This command uses the list of SNPs to keep (`.prune.in` file) to create the new, pruned fileset.
+Input files: `merged_data_core_cohort_no_pca_outliers_LDregions_excluded.bed/bim/fam` and `core_cohort_no_pca_outliers_LDregions_excluded_pruning_results.prune.in`.
+
+plink --bfile merged_data_core_cohort_no_pca_outliers_LDregions_excluded \
+      --extract core_cohort_no_pca_outliers_LDregions_excluded_pruning_results.prune.in \
+      --make-bed \
+      --out merged_data_final_pruned_no_outliers_for_pca
+
+*339751 variants and 1412 people pass filters and QC.*
 
 
-    Next, we load the eigen files into R, where we do the PCA visualiations. Please refer to the following r script for this: 
+*Note: Ensure the input filename in `--extract` matches the output from the `--indep-pairwise` step exactly.*
 
-    During this step, we discovered a crutial data mismatch, whcih we had not found earlier. We had some individuals in the eye_color data that we did not have genotyping data for, as well as individuals we had genotyping data for but no reported phenotype in the eye_color data. These mismatches explained the troubles we had during the R analysis, where a lot of our individuals were coming up as NAs. This was due to the mismatch. 
-
-      50 iids_in_pheno_not_gwas.txt
-      191 iids_in_gwas_not_pheno.txt
-      1818 iids_common_to_both.txt
-
-From updated:
-
-    Population Stratification (PCA) & Batch Effect Visualization (Run PCA)
-
-      plink --bfile merged_data_final_pruned_for_pca \
-      --pca 10 \
-      --out final_pca_results
-
-      Based on the PCA plots (especially the one colored by chip type and the one just showing general structure):
-      Population Structure: Do the samples form one homogenous cloud, or are there distinct clusters or gradients? If so, what might these correspond to (e.g., European ancestries, other ancestries if present in openSNP data)?
-      Batch Effects: Do samples cluster primarily by chip type on any of the top PCs? If chip_OmniExpress (or any other chip) forms a separate cluster from the others, this is strong evidence of a batch effect. You'd mention that the PCA reveals chip-specific clustering.
-      Outliers: Are there any individual samples that are extreme outliers on the PCA plot? These might warrant further investigation (though QC should have caught most problematic samples).
-
-        PCA: PC1 vs PC2 (Population Structure - Uncolored Plot):
-          Observation: You see a main dense "cloud" of points near the origin (0,0), but also distinct "arms" or gradients extending away, particularly towards the positive PC1 direction, and separating further along PC2 in the upper-right and lower-right quadrants.
-          Interpretation (Population Structure): This is a classic picture of significant population substructure.
-          PC1: This axis captures the largest source of genetic variation among your samples. Given that openSNP data often has a strong European component but also includes individuals of other ancestries, PC1 frequently separates individuals along a major axis of European variation (e.g., North-West Europe vs. South/East Europe) or sometimes separates Europeans from non-Europeans. The large spread along this axis means there are substantial genetic differences captured here.
-          PC2: This captures the second largest amount of variation. It further differentiates groups. It might separate different European subgroups or distinguish individuals with non-European ancestry (e.g., East Asian, African, Ashkenazi Jewish – whose genetic profiles differ from the main European cluster) from the main European cluster(s).
-          The Dense Cloud: Likely represents the most numerous ancestry group in your subset (often Northern/Western European descent in openSNP).
-          The "Arms": Represent individuals who are genetically distinct from the main cloud along these primary axes. They could be from different European populations, individuals with non-European ancestry, or potentially admixed individuals.
-          Conclusion: Your dataset is not genetically homogeneous. It contains substantial population structure, likely reflecting diverse ancestries present in the openSNP cohort. This structure must be controlled for in your GWAS to avoid spurious associations. Including PC1 and PC2 (and possibly more PCs) as covariates is essential.
-
-
-        PCA: PC1 vs PC2, Colored by Chip Type:
-          Observation: As you noted, the different colors (chip types) are largely intermingled throughout the structure revealed in the first plot. There isn't one color forming its own isolated island separate from the others along PC1 or PC2.
-          Interpretation (Batch Effects): This is generally very good news. It indicates that the major population structure patterns (captured by PC1 and PC2) are not primarily driven by which chip the sample was run on. If there were strong, systematic technical differences between chips affecting many of the common SNPs used for PCA, you would expect to see distinct clusters based purely on color. The mixing suggests that genetic variation (ancestry) is a much stronger signal than chip type for these top PCs after your QC steps.
-          Conclusion: While originating from different genotyping platforms, the samples do not show strong clustering by chip type along the primary axes of genetic variation (PC1/PC2) after quality control, suggesting major batch effects are not confounding the observed population structure in this view.
-
-        PCA: PC1 vs PC2, Colored by Mapped Eye Color:
-          Observation: You see clear non-random distribution. Blue (0) is concentrated in the main dense cloud. Green/Hazel (1, 2) are also mostly in/near that cloud. Brown (3) is present in the cloud but is much more prevalent in the "arms" extending towards positive PC1. Your observation about darker eyes "stretching out" is accurate. The two NAs are also plotted somewhere based on their genetics.
-          Interpretation (Phenotype-Structure Correlation): This strongly indicates that eye color is correlated with the genetic ancestry captured by PCA.
-          The main cluster (low PC1/PC2), rich in blue eyes, likely represents populations with high frequencies of alleles associated with blue eyes (e.g., common variants near HERC2/OCA2 prevalent in Europeans, especially Northern Europeans).
-          The "arms" (higher PC1), rich in brown eyes, likely represent populations where alleles for brown eyes are much more common (e.g., Southern Europeans, non-Europeans).
-          This is biologically expected. Eye color frequencies vary significantly across global populations.
-          Conclusion: Eye color phenotype is significantly correlated with the population structure identified by PC1 and PC2. This underscores the critical importance of using PCs as covariates in the GWAS. Failing to do so would lead to highly inflated results and false positives, simply rediscovering that different ancestry groups have different eye colors, rather than finding specific causal variants within those populations.
-              
-        The PCA clearly reveals substantial population stratification within your openSNP cohort, likely reflecting diverse European and potentially non-European ancestries.
-     Encouragingly, samples do not cluster strongly by genotyping chip along these main PCs, suggesting major batch effects are not driving the primary structure after QC. However, there is a clear correlation between the observed population structure (PCs) and the eye color phenotype, with most colors mixing in the main genetic cluster and brown eyes more prevalent in genetically distinct groups. This highlights the necessity of including principal components (e.g., PC1, PC2, and potentially more) as covariates in the subsequent GWAS to control for confounding due to ancestry.
-
-
-      If it is ancestry, it does look pretty similar to these: https://www.nature.com/articles/s41598-021-97129-2/figures/1 
-
-        
-              #Run PCA
-              plink --bfile merged_data_final_pruned_for_pca_v2 \
-                    --pca 10 \
-                    --out final_pca_results_v2 
-                    # New name
-
-
-        After finding out that the shape was not due to LD or inverted regions, the next steps to try are:
-
-            Project onto 1000 Genomes Reference Panel (Recommended Next Step for Interpretation):
-              This is the standard way to interpret what your PCs mean in terms of global ancestry.
-              You take your ~1800 individuals and project them onto the PC space defined by the diverse 1000 Genomes Project samples (which have known population labels like CEU, YRI, CHB, etc.).
-              How to do it:
-              Download 1000 Genomes Phase 3 PLINK files (ensure good overlap of SNPs with your data).
-              Merge your data with 1000 Genomes data, keeping only common SNPs.
-              Run PCA on this combined dataset.
-              Plot the PCA results, coloring 1000 Genomes samples by their known population labels, and overlay your study samples.
-              This will show you where your samples fall relative to known reference populations, helping you label the arms/clusters in your own PCA (e.g., "This arm clusters with 1000G Europeans," "This group clusters with 1000G East Asians").
-              PLINK can do this, or specialized tools like smartpca from EIGENSOFT, or custom R scripts.
+*Overall Outcome of Second LD Pruning:*
+A new PLINK binary fileset: `merged_data_final_pruned_no_outliers_for_pca.bed/bim/fam`.
+This dataset contains individuals from the outlier-removed cohort (`merged_data_core_cohort_no_pca_outliers`) but only a subset of SNPs (from `merged_data_core_cohort_no_pca_outliers_LDregions_excluded`) that are in approximate linkage equilibrium and outside the specified major complex LD regions.
+The `merged_data_final_pruned_no_outliers_for_pca.log` file will state the final number of variants remaining.
+This `merged_data_final_pruned_no_outliers_for_pca` dataset is the appropriate input for re-running the Principal Component Analysis to generate PCs for the outlier-removed cohort.
             
 
+# Second PCA (Post Outlier Removal) - Generating Final Covariates
 
-# Sample Relatedness
+*Purpose*
+Having removed PCA outliers and subsequently re-pruned the dataset for linkage disequilibrium (`merged_data_final_pruned_no_outliers_for_pca`), the next step is to perform Principal Component Analysis (PCA) again. This new PCA will generate eigenvectors (principal components, PCs) that accurately reflect the population structure of the refined cohort (i.e., the individuals remaining after outlier removal). These PCs will be used as covariates in the downstream GWAS to control for population stratification.
 
-# Final Sample Genotyping Call Rate (Optional Post-Relatedness Check)
+*Methodology - PCA Calculation*
+
+Input Dataset for PCA:
+The LD-pruned dataset created after outlier removal and re-pruning:
+`merged_data_final_pruned_no_outliers_for_pca.bed/bim/fam`
+
+This dataset contains:
+*   Individuals: The original N=XXXX minus the number of PCA outliers removed.
+*   SNPs: The set of SNPs remaining after excluding high-LD regions and performing window-based LD pruning on the outlier-removed cohort = XXXXXX
+
+Run PCA using PLINK:
+
+plink --bfile merged_data_final_pruned_no_outliers_for_pca \
+      --pca 10 \
+      --out final_pca_results_no_outliers
+
+This command calculates the top 10 principal components for the refined cohort.
+*   `--bfile merged_data_final_pruned_no_outliers_for_pca`: Specifies the input dataset.
+*   `--pca 10`: Instructs PLINK to calculate the top 10 PCs. You can adjust this number if desired (e.g., 20), but 10 is a common starting point.
+*   `--out final_pca_results_no_outliers`: Specifies the prefix for the output files.
+
+Output files:
+*   `final_pca_results_no_outliers.eigenvec`: Contains the eigenvectors (PC values) for each individual in the refined cohort (FID, IID, PC1, PC2, ..., PC10). **This is the key file you will use for GWAS covariates.**
+*   `final_pca_results_no_outliers.eigenval`: Contains the eigenvalues for each calculated PC. This tells you how much variance each PC explains.
+*   `final_pca_results_no_outliers.log`: PLINK log file.
+
+*Methodology - Visualization and Review in R (Recommended)*
+It is highly recommended to briefly visualize these new PCs, similar to how you analyzed the first PCA.
+
+(Open R with `PCA_analysis_post_outlier_removal.Rmd`)
+
+Data Loading and Preparation:
+*   Load `final_pca_results_no_outliers.eigenvec` and `final_pca_results_no_outliers.eigenval`.
+*   Calculate and review the percentage of variance explained by each new PC.
+*   Merge this new PCA data with your relevant metadata (chip information, mapped eye color phenotypes, original self-reported eye colors, sex information) for the *remaining individuals*.
+
+Key Visualizations to Generate (for review):
+*   Scree plot showing variance explained by each PC (from `.eigenval`).
+*   PC1 vs PC2 (and other combinations like PC1 vs PC3):
+    *   Uncolored (to show overall structure).
+    *   Colored by ChipType.
+    *   Colored by `phenotype_labeled` (your 4-category eye color).
+    *   Colored by Sex_Labeled.
+
+*Expected Outcome and Interpretation of Second PCA:*
+*   The general population structure observed should be similar to your first PCA, but potentially "tighter" or more refined, as the extreme outliers have been removed.
+*   The variance explained by the top PCs might shift slightly.
+*   Confirm that no new, unexpected gross outliers have appeared. The goal here is not to do another round of outlier removal unless something is clearly wrong, but to ensure the PCs look reasonable for the refined cohort.
+*   These `final_pca_results_no_outliers.eigenvec` are now ready to be used as covariates in your association testing to account for the observed population structure in your final analysis cohort.
+
+
+TIME TO GO BACK AND REMOVE OMINEXPRESS IN THE VERY BEGINNING! :) DONE
+
+
+# Sample Relatedness Check (IBD Estimation)
+
+*Purpose*
+To identify pairs of individuals in the analysis cohort who are closely related (e.g., duplicates, parent-offspring, full siblings). Standard GWAS association tests assume samples are unrelated. Including closely related individuals can inflate test statistics and lead to false positives due to shared genetic material beyond what's expected by chance in a random population sample. This step aims to estimate identity-by-descent (IBD) to quantify relatedness and remove one individual from each related pair to ensure sample independence.
+
+*Methodology*
+
+PLINK's IBD estimation capabilities will be used. This is typically performed on an LD-pruned set of SNPs, as high LD can inflate IBD estimates. The dataset `merged_data_final_pruned_no_outliers_for_pca` (which was used for your final PCA) is suitable for this.
+
+Input Dataset for IBD Estimation:
+*   `merged_data_final_pruned_no_outliers_for_pca.bed/bim/fam`
+    *   This dataset contains: 1412 individuals (after OmniExpress removal and one round of PCA outlier removal) and 339,751 LD-pruned SNPs.
+    *   It's crucial to use an LD-pruned set to avoid LD confounding IBD estimates.
+
+*Step 1: Initial IBD Calculation with PLINK*
+
+Run PLINK to calculate IBD sharing:
+This command calculates pairwise IBD estimates (PI_HAT, proportion IBD) for all pairs of individuals.
+
+plink --bfile merged_data_final_pruned_no_outliers_for_pca \
+      --genome \
+      --out relatedness_check_results_no_outliers
+
+Parameters:
+*   `--bfile merged_data_final_pruned_no_outliers_for_pca`: Specifies the input LD-pruned dataset.
+*   `--genome`: Instructs PLINK to perform IBD estimation. By default, it uses a method of moments approach. It considers parameters like minimum MAF for SNPs used in IBD estimation (default usually 0.01 or 0.05).
+*   `--out relatedness_check_results_no_outliers`: Specifies the prefix for the output files.
+
+Output files:
+*   `relatedness_check_results_no_outliers.genome`: This is the primary output file. It lists pairs of individuals and their estimated IBD sharing statistics, including Z0, Z1, Z2 (probabilities of sharing 0, 1, or 2 alleles IBD), and PI_HAT (overall proportion of genome IBD).
+*   `relatedness_check_results_no_outliers.log`: PLINK log file.
+
+*Step 2: Identify and Handle Related Individuals in R*
+
+(Run in R Studio `relatedness_analysis.Rmd`)
+
+Define Relatedness Thresholds:
+Commonly used PI_HAT thresholds for identifying related pairs:
+Duplicates / Monozygotic Twins: PI_HAT > 0.9 (very close to 1)
+Parent-Offspring or Full Siblings: PI_HAT > 0.4 (typically around 0.5)
+Second-degree relatives (e.g., half-sibs, grandparent-grandchild, avuncular): PI_HAT > 0.1875 (typically around 0.25)
+Third-degree relatives (e.g., first cousins): PI_HAT > 0.09375 (typically around 0.125)
+For GWAS, it's common to remove one individual from pairs that are second-degree relatives or closer. A PI_HAT threshold of 0.1875 or 0.2 is often used as a cutoff to identify pairs needing resolution. Let's use PI_HAT > 0.1875.
+
+Based on the number of relations per individual plot, the following algorithm runs. There were 20000+ related pairs, that generated 229 unique related individuals across all pairs.
+
+This R script that creates 'related_individuals_to_remove.txt' implements a greedy algorithm: it finds the person involved in the most high-PI_HAT relationships, adds them to a removal list, removes all their relationships, and repeats until no high-PI_HAT relationships remain. This is a common approach.
+
+"Number of pairs with PI_HAT > 0.1875: 21382"
+"Written 216 individuals to related_individuals_to_remove.txt"
+
+plink --bfile merged_data_core_cohort_no_pca_outliers \
+      --remove related_individuals_to_remove.txt \
+      --make-bed \
+      --out final_analysis_cohort_unrelated
+
+*1306452 variants and 1196 people pass filters and QC.*
+
+# Final Check of Individual Genotyping Call Rates (F_MISS)
+
+*Purpose*
+To assess the distribution of global individual genotyping call rates in the `final_analysis_cohort_unrelated` dataset and to make a final decision on sample inclusion based on this metric.
+
+*Methodology & Findings*
+Individual missingness statistics were calculated using PLINK:
+
+plink --bfile final_analysis_cohort_unrelated \
+      --missing \
+      --out final_cohort_imissing_stats
+
+The resulting *final_cohort_imissing_stats.imiss* file was loaded into R (final_check_individual_genotyping_call_rates.rmd)for examination.
+
+The distribution of F_MISS (proportion of missing SNPs per individual across the ~1.3 million SNPs in the merged dataset) was plotted. The histogram revealed a multi-modal distribution, with distinct clusters of individuals showing different overall missingness rates (e.g., peaks around 30-35% missing, 55-63% missing, and 85-90% missing). Approximately 263 individuals exhibited global missingness rates exceeding 85%.
+
+*Rationale for Retaining All Individuals at This Stage*
+Despite some individuals showing high global missingness rates, a decision was made to retain all 1196 individuals from the final_analysis_cohort_unrelated dataset for the following reasons:
+- Effective Per-Chip QC: Robust individual call rate filtering (--mind) was performed on a per-chip basis before the datasets were merged. This ensured that individuals had high-quality genotypes for the SNPs actually present on their respective arrays. The high global F_MISS values observed post-merging are therefore primarily interpreted as a consequence of differing SNP content across the various genotyping platforms, rather than an indication of poor individual sample quality for assayed SNPs. Individuals from chips with less SNP overlap with the total merged SNP pool will naturally show higher global F_MISS.
+- Preservation of Sample Size and Diversity: Removing a large number of individuals (such as the 263 with >85% F_MISS) solely based on global missingness would significantly reduce sample size and potentially remove individuals from less common chip platforms, thereby losing genetic and phenotypic diversity that could be valuable.
+- Information Content for Overlapping SNPs: Even individuals with high global F_MISS contribute valid genotype information for the subset of SNPs (e.g., 10-15% for the highest missingness group) for which they do have data. These overlapping SNPs are often the more common ones.
+
+*Downstream Analysis Capabilities:*
+- Standard GWAS association models in PLINK (e.g., logistic/linear regression) perform analysis on a per-SNP basis and can typically handle individuals with missing genotypes for the SNP being tested (those individuals are simply excluded from the test for that specific SNP).
+- Should more advanced analyses be pursued later, methods like mixed models (e.g., in GCTA or SAIGE) are robust to some levels of missing data.
+- Furthermore, genotype imputation could be considered in future analyses. While individuals with very sparse genome-wide data can be challenging to impute accurately, imputation could potentially recover information for these samples if a suitable reference panel is used. Retaining them keeps this option open.
+
+*Conclusion for this Step*
+No individuals were removed based on global F_MISS thresholds at this stage. The final_analysis_cohort_unrelated dataset, containing 1196 individuals, will proceed to SNP-level quality control. The observed F_MISS distribution underscores the heterogeneous nature of the merged multi-chip dataset.
+
+
 
 # Minor Allele Frequency (MAF) Filter
 

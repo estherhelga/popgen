@@ -1,0 +1,622 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+
+library(ggplot2)
+library(dplyr)
+
+```
+
+```{r}
+
+# Load the .eigenvec file from PLINK (output from Step 9)
+pca_eigenvectors <- read.table("final_pca_results_no_outliers.eigenvec", header = FALSE, as.is = TRUE)
+num_pcs <- ncol(pca_eigenvectors) - 2 
+colnames(pca_eigenvectors) <- c("FID", "IID", paste0("PC", 1:num_pcs))
+pca_eigenvectors$FID <- as.character(pca_eigenvectors$FID)
+pca_eigenvectors$IID <- as.character(pca_eigenvectors$IID)
+
+# This N seems to be manually set. Ideally, it should be dynamic.
+N <- nrow(pca_eigenvectors)                       # number of individuals in your cohort 
+# It would be better to use: N <- nrow(pca_eigenvectors) 
+# This ensures N matches the actual number of samples used in the PCA calculation.
+
+pca_eigenvalues <- read.table("final_pca_results_no_outliers.eigenval", header = FALSE)
+colnames(pca_eigenvalues) <- "Eigenvalue"
+
+# Each eigenvalue is a variance component; the sum of *all* N eigenvalues equals N
+total_var <- N                    # or nrow(eigenvec) if you prefer
+pca_eigenvalues$VarianceExplained <-
+        pca_eigenvalues$Eigenvalue / total_var * 100
+
+pca_eigenvalues$PC_num <- seq_len(nrow(pca_eigenvalues))        # ← add this back
+pca_eigenvalues$VarianceExplained <- (pca_eigenvalues$Eigenvalue / N )* 100
+
+
+# This comment is a bit misleading in the context of PLINK's .eigenval file:
+# "Each eigenvalue is a variance component; the sum of *all* N eigenvalues equals N"
+# PLINK's .eigenval file only contains the top K eigenvalues (e.g., 10 if you did --pca 10).
+# The sum of THESE K eigenvalues does not necessarily equal N or the number of SNPs.
+# The relationship sum(eigenvalues) = N or sum(eigenvalues) = M (number of markers)
+# depends on how the covariance/correlation matrix was constructed and if ALL eigenvalues are summed.
+
+total_var <- N                    # You're setting total_var to the number of individuals.
+                                  # This is ONE common way to scale/interpret when you don't have all eigenvalues.
+                                  # Alternatively, if you wanted % variance relative to the sum of the *calculated*
+                                  # eigenvalues, total_var would be sum(pca_eigenvalues$Eigenvalue).
+                                  # Or, if aiming for % of variance relative to total markers,
+                                  # total_var would be the number of SNPs used in PCA (e.g., 43004).
+
+# This line is redundant because the next assignment to VarianceExplained overwrites it.
+# pca_eigenvalues$VarianceExplained <- pca_eigenvalues$Eigenvalue / total_var * 100 
+
+pca_eigenvalues$PC_num <- seq_len(nrow(pca_eigenvalues))        # This is good, adds PC numbers.
+
+# This is your operative calculation for VarianceExplained:
+pca_eigenvalues$VarianceExplained <- (pca_eigenvalues$Eigenvalue / N) * 100 # Using N (number of individuals) as the denominator.
+
+
+# Get variance for plot labels
+pc1_var <- round(pca_eigenvalues$VarianceExplained[1], 1)
+pc2_var <- round(pca_eigenvalues$VarianceExplained[2], 1)
+pc3_var <- round(pca_eigenvalues$VarianceExplained[3], 1) # Assuming at least 3 PCs
+pc3_var <- round(pca_eigenvalues$VarianceExplained[3], 1)
+
+```
+
+```{r}
+
+# Load IID to ChipType mapping
+iid_chip_map <- read.table("iid_to_chip.txt", header = TRUE, as.is = TRUE, sep = "\t") # Adjust sep if needed
+iid_chip_map$IID <- as.character(iid_chip_map$IID)
+if("FID" %in% colnames(iid_chip_map)) { iid_chip_map$FID <- as.character(iid_chip_map$FID) }
+
+cat("Head of Chip Mapping Data (iid_chip_map):\n")
+print(head(iid_chip_map))
+
+# Merge PCA data with chip type information
+# Using a new name for the merged dataframe: pca_with_metadata
+# Merge by IID. If your chip map also has reliable FIDs that match PLINK's, use by=c("FID","IID")
+pca_with_metadata <- merge(pca_eigenvectors, iid_chip_map[, c("IID", "ChipType")], by = "IID", all.x = TRUE) 
+
+cat("\nHead of PCA data merged with ChipType (pca_with_metadata):\n")
+print(head(pca_with_metadata))
+cat("Number of NAs in ChipType after merge:", sum(is.na(pca_with_metadata$ChipType)), "\n\n")
+
+```
+
+```{r}
+
+# Load your mapped phenotype data 
+# Assumes columns: FID, IID, phenotype (0-3) and tab-separated with header
+mapped_pheno_data <- read.table("eye_color_updated.txt", header = TRUE, as.is = TRUE)
+mapped_pheno_data$FID <- as.character(mapped_pheno_data$FID)
+mapped_pheno_data$IID <- as.character(mapped_pheno_data$IID)
+
+cat("Head of Mapped Phenotype Data (mapped_pheno_data):\n")
+print(head(mapped_pheno_data))
+
+# Merge mapped phenotype data with pca_with_metadata
+pca_with_metadata <- merge(pca_with_metadata, mapped_pheno_data[, c("FID", "IID", "phenotype")], by = c("FID", "IID"), all.x = TRUE)
+
+cat("\nHead of data merged with mapped phenotype (pca_with_metadata):\n")
+print(head(pca_with_metadata))
+cat("Number of NAs in mapped phenotype after merge:", sum(is.na(pca_with_metadata$phenotype)), "\n")
+# This NA count should now be very low or zero if eye_color_updated.txt was filtered to the core cohort.
+# Any remaining NAs would be from individuals in the core cohort whose eye_color.txt entry mapped to NA (e.g. "red/blood").
+
+# Convert numeric phenotype to a labeled factor
+pca_with_metadata$phenotype_labeled <- factor(
+  pca_with_metadata$phenotype,
+  levels = c(0, 1, 2, 3),
+  labels = c("Blue (0)", "Green/Blue-Green (1)", "Hazel (2)", "Brown (3)")
+)
+cat("Table of labeled mapped phenotypes:\n")
+print(table(pca_with_metadata$phenotype_labeled, useNA = "ifany"))
+cat("\n\n")
+
+```
+
+```{r}
+
+# Load original self-reported phenotype data
+# *** ADJUST read.table and colnames based on your eye_color.txt structure ***
+# Example: assuming space-separated, no header, cols are IID then ReportedEyeColor
+original_pheno_raw <- read.table("eye_color.txt", header = FALSE, as.is = TRUE, sep = " ")
+colnames(original_pheno_raw) <- c("IID", "ReportedEyeColor") # Adjust if FID is also present
+
+original_pheno_raw$IID <- as.character(original_pheno_raw$IID)
+
+cat("Head of Original Self-Reported Phenotype Data (original_pheno_raw):\n")
+print(head(original_pheno_raw))
+
+# Merge original phenotype data with pca_with_metadata
+# Merge by IID
+pca_with_metadata <- merge(pca_with_metadata, original_pheno_raw[, c("IID", "ReportedEyeColor")], by = "IID", all.x = TRUE)
+
+cat("\nHead of data merged with original reported eye color (pca_with_metadata):\n")
+print(head(pca_with_metadata))
+cat("Number of NAs in ReportedEyeColor after merge:", sum(is.na(pca_with_metadata$ReportedEyeColor)), "\n")
+# NAs here will be for individuals in your core genetic cohort whose IIDs were not in original eye_color.txt.
+
+# Convert original reported eye color to factor
+pca_with_metadata$ReportedEyeColor_Factor <- factor(pca_with_metadata$ReportedEyeColor)
+cat("Table of original reported eye colors (counts):\n")
+print(table(pca_with_metadata$ReportedEyeColor_Factor, useNA = "ifany"))
+cat("\n\n")
+
+```
+
+```{r}
+
+
+# --- Scree Plot ---
+p_scree <- ggplot(pca_eigenvalues, aes(x = PC_num, y = VarianceExplained)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  geom_line(aes(y = VarianceExplained), color="red", group=1) + geom_point(color="red") +
+  labs(title = "Scree Plot: Variance Explained by PCs", x = "Principal Component", y = "% Variance Explained") +
+  scale_x_continuous(breaks = pca_eigenvalues$PC_num) + theme_bw()
+print(p_scree)
+
+# --- PC1 vs PC2 (General Population Structure) ---
+p_popstruct <- ggplot(pca_with_metadata, aes(x = PC1, y = PC2)) +
+  geom_point(alpha = 0.7, size = 2, color = "dodgerblue") +
+  labs(title = "PCA: PC1 vs PC2 (Population Structure)",
+       x = paste0("PC1 (", pc1_var, "% variance)"), y = paste0("PC2 (", pc2_var, "% variance)")) +
+  theme_bw()
+print(p_popstruct)
+
+# --- PC1 vs PC2, Colored by Chip Type (Batch Effects) ---
+p_batch_chip <- ggplot(pca_with_metadata, aes(x = PC1, y = PC2, color = ChipType)) +
+  geom_point(alpha = 0.7, size = 2) +
+  labs(title = "PCA: PC1 vs PC2, Colored by Chip Type",
+       x = paste0("PC1 (", pc1_var, "% variance)"), y = paste0("PC2 (", pc2_var, "% variance)")) +
+  theme_bw() + guides(color = guide_legend(title = "Chip Platform"))
+print(p_batch_chip)
+
+# --- PC2 vs PC3, Colored by Chip Type (Batch Effects) ---
+p_batch_chip_pc23 <- ggplot(pca_with_metadata, aes(x = PC2, y = PC3, color = ChipType)) +
+  geom_point(alpha = 0.7, size = 2) +
+  labs(title = "PCA: PC2 vs PC3, Colored by Chip Type",
+       x = paste0("PC2 (", pc2_var, "% variance)"), y = paste0("PC3 (", pc3_var, "% variance)")) +
+  theme_bw() + guides(color = guide_legend(title = "Chip Platform"))
+print(p_batch_chip_pc23)
+
+# --- PC1 vs PC2, Colored by Mapped Phenotype (0-3 Scale) ---
+p_pheno_mapped <- ggplot(pca_with_metadata, aes(x = PC1, y = PC2, color = phenotype_labeled)) +
+  geom_point(alpha = 0.7, size = 2) +
+  labs(title = "PCA: PC1 vs PC2, Colored by Mapped Eye Color",
+       x = paste0("PC1 (", pc1_var, "% variance)"), y = paste0("PC2 (", pc2_var, "% variance)")) +
+  theme_bw() + guides(color = guide_legend(title = "Mapped Eye Color"))
+print(p_pheno_mapped)
+
+# --- PC1 vs PC2, Mapped Phenotype, Faceted by Chip Type ---
+p_pheno_mapped_facet <- ggplot(pca_with_metadata, aes(x = PC1, y = PC2, color = phenotype_labeled)) +
+  geom_point(alpha = 0.7, size = 1.5) + facet_wrap(~ ChipType) + 
+  labs(title = "PCA: PC1 vs PC2, Mapped Eye Color, Faceted by Chip Type",
+       x = paste0("PC1 (", pc1_var, "% variance)"), y = paste0("PC2 (", pc2_var, "% variance)")) +
+  theme_bw() + guides(color = guide_legend(title = "Mapped Eye Color"))
+print(p_pheno_mapped_facet)
+
+# --- PC1 vs PC2, Colored by Original Self-Reported Eye Color ---
+p_pheno_original <- ggplot(pca_with_metadata, aes(x = PC1, y = PC2, color = ReportedEyeColor_Factor)) +
+  geom_point(alpha = 0.7, size = 2) +
+  labs(title = "PCA: Original Self-Reported Eye Color",
+       x = paste0("PC1 (", pc1_var, "% variance)"), y = paste0("PC2 (", pc2_var, "% variance)")) +
+  theme_bw() + theme(legend.text = element_text(size = 6), legend.key.size = unit(0.4, "cm")) +
+  guides(color = guide_legend(title = "Reported Eye Color", ncol = 1))
+print(p_pheno_original)
+
+# --- PC1 vs PC2, Original Self-Reported Eye Color, Faceted by Chip Type ---
+p_pheno_original_facet <- ggplot(pca_with_metadata, aes(x = PC1, y = PC2, color = ReportedEyeColor_Factor)) +
+  geom_point(alpha = 0.7, size = 1.5) + facet_wrap(~ ChipType) + 
+  labs(title = "PCA: Original Eye Color, Faceted by Chip Type",
+       x = paste0("PC1 (", pc1_var, "% variance)"), y = paste0("PC2 (", pc2_var, "% variance)")) +
+  theme_bw() + theme(legend.position = "bottom", legend.text = element_text(size = 6), legend.key.size = unit(0.4, "cm")) +
+  guides(color = guide_legend(title = "Reported Eye Color", ncol = 3))
+print(p_pheno_original_facet)
+
+```
+
+
+
+```{r}
+
+## Identify Individuals with NA Mapped Phenotypes
+
+# Assuming 'pca_with_metadata' is your final data frame
+# and 'phenotype' is the column with the 0-3 mapped values (or NA)
+# and 'phenotype_labeled' is the factored version of it.
+
+# We can filter based on is.na() for either 'phenotype' or 'phenotype_labeled'
+individuals_with_na_mapped_pheno <- pca_with_metadata %>%
+  filter(is.na(phenotype)) %>% # or filter(is.na(phenotype_labeled))
+  select(FID, IID, ChipType, ReportedEyeColor, phenotype, phenotype_labeled) # Show relevant columns
+
+if (nrow(individuals_with_na_mapped_pheno) > 0) {
+  cat("Individuals with NA for the mapped phenotype (0-3 scale):\n")
+  print(individuals_with_na_mapped_pheno)
+  
+  cat("\nSelf-reported eye colors for these individuals (should be your excluded categories):\n")
+  print(table(individuals_with_na_mapped_pheno$ReportedEyeColor))
+} else {
+  cat("No individuals found with NA for the mapped phenotype.\n")
+}
+
+```
+
+```{r}
+
+# Assuming 'pca_with_metadata' is your final dataframe from the previous R script
+
+cat("--- Removing individuals with NA mapped phenotype from R dataframe ---\n")
+cat("Original number of rows:", nrow(pca_with_metadata), "\n")
+
+# Filter out rows where 'phenotype' is NA
+pca_cleaned_pheno <- pca_with_metadata %>%
+  filter(!is.na(phenotype)) 
+  # Alternatively, using base R:
+  # pca_cleaned_pheno <- pca_with_metadata[!is.na(pca_with_metadata$phenotype), ]
+
+cat("Number of rows after removing NAs:", nrow(pca_cleaned_pheno), "\n")
+cat("Number of individuals removed:", nrow(pca_with_metadata) - nrow(pca_cleaned_pheno), "\n") # Should be 2
+
+# --- IMPORTANT ---
+# Now, use 'pca_cleaned_pheno' for all subsequent plots in R 
+# that rely on the mapped phenotype (0-3 scale or phenotype_labeled).
+
+# Example: Regenerate the plot colored by mapped phenotype using the cleaned data
+p_pheno_mapped_cleaned <- ggplot(pca_cleaned_pheno, aes(x = PC1, y = PC2, color = phenotype_labeled)) +
+  geom_point(alpha = 0.7, size = 2) +
+  labs(title = "PCA: PC1 vs PC2, Colored by Mapped Eye Color (NA phenotypes removed)",
+       x = paste0("PC1 (", pc1_var, "% variance)"), 
+       y = paste0("PC2 (", pc2_var, "% variance)")) +
+  theme_bw() + 
+  guides(color = guide_legend(title = "Mapped Eye Color"))
+print(p_pheno_mapped_cleaned)
+
+# Plots using ChipType or ReportedEyeColor_Factor can still use the original 'pca_with_metadata'
+# if you want to see where these 2 individuals fall in those contexts, or use pca_cleaned_pheno
+# if you want them excluded from all plots moving forward in the R script.
+
+```
+
+```{r}
+
+# Load the sex check results file
+# Ensure the path is correct
+sex_check_results <- read.table("core_cohort_sex_check_results.sexcheck", header = TRUE, as.is = TRUE)
+
+# Convert FID and IID to character for merging
+sex_check_results$FID <- as.character(sex_check_results$FID)
+sex_check_results$IID <- as.character(sex_check_results$IID)
+
+cat("Head of Sex Check Results Data (sex_check_results):\n")
+print(head(sex_check_results))
+cat("Dimensions:", dim(sex_check_results), "\n\n")
+
+# Merge sex check results with our main plotting dataframe 'pca_with_metadata'
+# We only need SNPSEX primarily, but might keep F and STATUS for reference
+# Merge using FID and IID
+pca_with_metadata <- merge(
+  pca_with_metadata, 
+  sex_check_results[, c("FID", "IID", "SNPSEX", "F", "STATUS")], # Select relevant columns
+  by = c("FID", "IID"), 
+  all.x = TRUE # Keep all rows from pca_with_metadata
+)
+
+cat("\nHead of data merged with sex check info (pca_with_metadata):\n")
+print(head(pca_with_metadata))
+cat("Number of NAs in SNPSEX after merge:", sum(is.na(pca_with_metadata$SNPSEX)), "\n") 
+# This should be 0 if sex_check was run on the same set of individuals as PCA
+
+# Create a labeled factor for SNPSEX
+# Handle potential NA values in SNPSEX if the merge didn't match perfectly, although it should have.
+pca_with_metadata$Sex_Labeled <- factor(
+  pca_with_metadata$SNPSEX,
+  levels = c(0, 1, 2),
+  labels = c("Unknown/Problem (0)", "Male (SNP=1)", "Female (SNP=2)")
+)
+
+cat("Table of Labeled Sex (based on SNPSEX):\n")
+print(table(pca_with_metadata$Sex_Labeled, useNA = "ifany"))
+cat("\n\n")
+
+# Reminder: SNPSEX = 0 includes the OmniExpress samples and any others where inference failed.
+
+```
+
+```{r}
+
+# Make sure pca_with_metadata is updated from the chunk above
+# Use pc1_var, pc2_var calculated earlier if available
+
+p_sex <- ggplot(pca_with_metadata, aes(x = PC1, y = PC2, color = Sex_Labeled)) +
+  geom_point(alpha = 0.7, size = 2) +
+  labs(title = "PCA: PC1 vs PC2, Colored by Genetically Inferred Sex (SNPSEX)",
+       x = if(exists("pc1_var")) paste0("PC1 (", pc1_var, "% variance)") else "PC1", 
+       y = if(exists("pc2_var")) paste0("PC2 (", pc2_var, "% variance)") else "PC2") +
+  theme_bw() +
+  guides(color = guide_legend(title = "Inferred Sex (SNPSEX)"))
+
+print(p_sex)
+
+# Optional: Facet by ChipType and color by Sex
+p_sex_facet_chip <- ggplot(pca_with_metadata, aes(x = PC1, y = PC2, color = Sex_Labeled)) +
+  geom_point(alpha = 0.7, size = 1.5) +
+  facet_wrap(~ ChipType) + 
+  labs(title = "PCA: PC1 vs PC2, Colored by Sex, Faceted by Chip Type",
+       x = if(exists("pc1_var")) paste0("PC1 (", pc1_var, "% variance)") else "PC1", 
+       y = if(exists("pc2_var")) paste0("PC2 (", pc2_var, "% variance)") else "PC2") +
+  theme_bw() +
+  guides(color = guide_legend(title = "Inferred Sex (SNPSEX)"))
+  
+print(p_sex_facet_chip)
+
+```
+
+## 9. Generate Multiple PCA Plots Systematically
+
+```{r generate_many_pca_plots, fig.width=7, fig.height=6}
+# Ensure required dataframes 'pca_with_metadata' and 'pca_eigenvalues' exist
+
+# --- Prepare Variance Explained Lookup ---
+# Create a named vector for easy lookup: PC_num -> VarianceExplained
+pc_variances <- setNames(pca_eigenvalues$VarianceExplained, paste0("PC", pca_eigenvalues$PC_num))
+
+# --- Helper Function to Create Standardized PCA Plot ---
+create_pca_plot <- function(data, x_pc_col, y_pc_col, color_col, 
+                            x_var, y_var, title_suffix, color_legend_title) {
+  
+  # Check if color column exists, handle gracefully if not
+  if(!color_col %in% colnames(data)) {
+      warning(paste("Color column '", color_col, "' not found in data. Plotting without color."))
+      color_mapping <- NULL # Set color mapping to NULL
+  } else {
+      color_mapping <- aes_string(color = color_col) # Use aes_string for string input
+  }
+  
+  # Create base plot
+  p <- ggplot(data, aes_string(x = x_pc_col, y = y_pc_col)) 
+  
+  # Add coloring if mapping is defined
+  if (!is.null(color_mapping)) {
+      p <- p + geom_point(aes_string(color = color_col), alpha = 0.7, size = 2) +
+           guides(color = guide_legend(title = color_legend_title))
+  } else {
+      # Plot without color if color column was missing
+      p <- p + geom_point(alpha = 0.7, size = 2, color="black") 
+  }
+  
+  # Add labels and theme
+  p <- p + labs(title = paste("PCA:", x_pc_col, "vs", y_pc_col, "-", title_suffix),
+                x = paste0(x_pc_col, " (", round(x_var, 1), "% variance)"),
+                y = paste0(y_pc_col, " (", round(y_var, 1), "% variance)")) +
+       theme_bw()
+       
+  return(p)
+}
+
+# --- Loop 1: Plot PC1 vs PC2 through PC10 ---
+cat("\n--- Generating Plots: PC1 vs PC2 through PC10 ---\n")
+x_pc_name <- "PC1"
+x_variance <- pc_variances[x_pc_name]
+
+for (i in 2:10) {
+  y_pc_name <- paste0("PC", i)
+  
+  # Check if PC exists in data (should if you calculated 10)
+  if (!y_pc_name %in% colnames(pca_with_metadata)) {
+    cat("Skipping plot involving", y_pc_name, "- column not found.\n")
+    next 
+  }
+  
+  y_variance <- pc_variances[y_pc_name]
+  
+  cat("\nGenerating plots for", x_pc_name, "vs", y_pc_name, "\n")
+  
+  # Plot colored by ChipType (print this one by default)
+  p_chip <- create_pca_plot(pca_with_metadata, x_pc_name, y_pc_name, "ChipType", 
+                            x_variance, y_variance, "Colored by Chip Type", "Chip Platform")
+  print(p_chip)
+  
+  # Plot colored by Mapped Phenotype (optional print)
+  p_pheno <- create_pca_plot(pca_with_metadata, x_pc_name, y_pc_name, "phenotype_labeled", 
+                         x_variance, y_variance, "Colored by Mapped Eye Color", "Mapped Eye Color")
+  print(p_pheno)
+  
+  # Plot colored by Sex (optional print)
+  # p_sex <- create_pca_plot(pca_with_metadata, x_pc_name, y_pc_name, "Sex_Labeled", 
+  #                          x_variance, y_variance, "Colored by Inferred Sex", "Inferred Sex")
+  # print(p_sex)
+  
+  # Add a small delay/separator if running interactively and printing many plots
+  Sys.sleep(0.5) 
+}
+
+# --- Loop 2: Plot PCn vs PCn+1 (for n = 3 through 9) ---
+cat("\n--- Generating Plots: PCn vs PCn+1 (n=3 to 9) ---\n")
+for (i in 3:9) {
+  x_pc_name <- paste0("PC", i)
+  y_pc_name <- paste0("PC", i + 1)
+  
+  # Check if PCs exist
+  if (!x_pc_name %in% colnames(pca_with_metadata) || !y_pc_name %in% colnames(pca_with_metadata)) {
+     cat("Skipping plot involving", x_pc_name, "or", y_pc_name, "- column(s) not found.\n")
+     next
+  }
+  
+  x_variance <- pc_variances[x_pc_name]
+  y_variance <- pc_variances[y_pc_name]
+  
+  cat("\nGenerating plots for", x_pc_name, "vs", y_pc_name, "\n")
+  
+  # Plot colored by ChipType (print this one by default)
+  p_chip <- create_pca_plot(pca_with_metadata, x_pc_name, y_pc_name, "ChipType", 
+                            x_variance, y_variance, "Colored by Chip Type", "Chip Platform")
+  print(p_chip)
+
+  # Plot colored by Mapped Phenotype (optional print)
+  p_pheno <- create_pca_plot(pca_with_metadata, x_pc_name, y_pc_name, "phenotype_labeled", 
+                             x_variance, y_variance, "Colored by Mapped Eye Color", "Mapped Eye Color")
+  print(p_pheno)
+  
+  # Plot colored by Sex (optional print)
+  # p_sex <- create_pca_plot(pca_with_metadata, x_pc_name, y_pc_name, "Sex_Labeled", 
+  #                          x_variance, y_variance, "Colored by Inferred Sex", "Inferred Sex")
+  # print(p_sex)
+
+  # Sys.sleep(0.5)
+}
+
+cat("\n--- Finished generating multiple PC plots ---\n")
+
+```
+
+
+```{r}
+
+# --- Save All PCA Plots as PNGs ---
+output_dir <- "pca_plots_no_omniexpress_no_outliers"  # Set your desired output folder
+if (!dir.exists(output_dir)) dir.create(output_dir)
+
+# Helper to save plot
+save_pca_plot <- function(plot_obj, filename) {
+  ggsave(filename = file.path(output_dir, filename),
+         plot = plot_obj,
+         width = 7, height = 6, dpi = 300)
+}
+
+# Loop 1: Save PC1 vs PC2 through PC10
+x_pc_name <- "PC1"
+x_variance <- pc_variances[x_pc_name]
+
+for (i in 2:10) {
+  y_pc_name <- paste0("PC", i)
+  if (!y_pc_name %in% colnames(pca_with_metadata)) next
+  
+  y_variance <- pc_variances[y_pc_name]
+
+  p_chip <- create_pca_plot(pca_with_metadata, x_pc_name, y_pc_name, "ChipType", 
+                            x_variance, y_variance, "Colored by Chip Type", "Chip Platform")
+  save_pca_plot(p_chip, paste0("PCA_", x_pc_name, "_vs_", y_pc_name, "_ChipType.png"))
+
+  p_pheno <- create_pca_plot(pca_with_metadata, x_pc_name, y_pc_name, "phenotype_labeled", 
+                             x_variance, y_variance, "Colored by Mapped Eye Color", "Mapped Eye Color")
+  save_pca_plot(p_pheno, paste0("PCA_", x_pc_name, "_vs_", y_pc_name, "_EyeColor.png"))
+}
+
+# Loop 2: Save PCn vs PCn+1 (n = 3 through 9)
+for (i in 3:9) {
+  x_pc_name <- paste0("PC", i)
+  y_pc_name <- paste0("PC", i + 1)
+  if (!x_pc_name %in% colnames(pca_with_metadata) || !y_pc_name %in% colnames(pca_with_metadata)) next
+
+  x_variance <- pc_variances[x_pc_name]
+  y_variance <- pc_variances[y_pc_name]
+
+  p_chip <- create_pca_plot(pca_with_metadata, x_pc_name, y_pc_name, "ChipType", 
+                            x_variance, y_variance, "Colored by Chip Type", "Chip Platform")
+  save_pca_plot(p_chip, paste0("PCA_", x_pc_name, "_vs_", y_pc_name, "_ChipType.png"))
+
+  p_pheno <- create_pca_plot(pca_with_metadata, x_pc_name, y_pc_name, "phenotype_labeled", 
+                             x_variance, y_variance, "Colored by Mapped Eye Color", "Mapped Eye Color")
+  save_pca_plot(p_pheno, paste0("PCA_", x_pc_name, "_vs_", y_pc_name, "_EyeColor.png"))
+}
+
+
+```
+
+
+```{r}
+# 6 SD's
+
+mean_pc1 <- mean(pca_with_metadata$PC1, na.rm = TRUE)
+sd_pc1 <- sd(pca_with_metadata$PC1, na.rm = TRUE)
+mean_pc2 <- mean(pca_with_metadata$PC2, na.rm = TRUE)
+sd_pc2 <- sd(pca_with_metadata$PC2, na.rm = TRUE)
+
+pc1_lower_bound <- mean_pc1 - (6 * sd_pc1)
+pc1_upper_bound <- mean_pc1 + (6 * sd_pc1)
+pc2_lower_bound <- mean_pc2 - (6 * sd_pc2)
+pc2_upper_bound <- mean_pc2 + (6 * sd_pc2)
+
+cat("PC1 Mean:", mean_pc1, "SD:", sd_pc1, "Bounds:", pc1_lower_bound, "to", pc1_upper_bound, "\n")
+cat("PC2 Mean:", mean_pc2, "SD:", sd_pc2, "Bounds:", pc2_lower_bound, "to", pc2_upper_bound, "\n")
+```
+```{r}
+outlier_pca_samples <- pca_with_metadata %>%
+  filter(PC1 < pc1_lower_bound | PC1 > pc1_upper_bound |
+         PC2 < pc2_lower_bound | PC2 > pc2_upper_bound)
+
+cat("\nNumber of potential PCA outliers identified:", nrow(outlier_pca_samples), "\n")
+if (nrow(outlier_pca_samples) > 0) {
+  cat("Details of PCA outliers:\n")
+  print(outlier_pca_samples %>% select(FID, IID, PC1, PC2, ChipType)) # Show some relevant info
+}
+```
+```{r}
+p_structure_bounds <- ggplot(pca_with_metadata, aes(x = PC1, y = PC2)) +
+  geom_point(alpha = 0.7, size = 2, color = "dodgerblue") +
+  geom_vline(xintercept = c(pc1_lower_bound, pc1_upper_bound), linetype = "dashed", color = "red") +
+  geom_hline(yintercept = c(pc2_lower_bound, pc2_upper_bound), linetype = "dashed", color = "red") +
+  labs(title = "PCA: PC1 vs PC2 with +/- 6SD Outlier Bounds",
+       x = paste0("PC1 (", pc1_var, "% variance)"), 
+       y = paste0("PC2 (", pc2_var, "% variance)")) +
+  theme_bw() +
+  annotate("text", x = pc1_lower_bound, y = max(pca_with_metadata$PC2, na.rm=T), label = "-6SD", vjust = -0.5, hjust = 0, color = "red", size=3) +
+  annotate("text", x = pc1_upper_bound, y = max(pca_with_metadata$PC2, na.rm=T), label = "+6SD", vjust = -0.5, hjust = 1, color = "red", size=3) +
+  annotate("text", y = pc2_lower_bound, x = max(pca_with_metadata$PC1, na.rm=T), label = "-6SD", hjust = 1.1, vjust = 0, color = "red", size=3, angle=90) +
+  annotate("text", y = pc2_upper_bound, x = max(pca_with_metadata$PC1, na.rm=T), label = "+6SD", hjust = 1.1, vjust = 1, color = "red", size=3, angle=90)
+
+print(p_structure_bounds)
+
+
+# --- Plot 2: PC1 vs PC2, Colored by Chip Type, with Outlier Bounds ---
+p_chip_bounds <- ggplot(pca_with_metadata, aes(x = PC1, y = PC2, color = ChipType)) +
+  geom_point(alpha = 0.7, size = 2) +
+  geom_vline(xintercept = c(pc1_lower_bound, pc1_upper_bound), linetype = "dashed", color = "darkgrey") +
+  geom_hline(yintercept = c(pc2_lower_bound, pc2_upper_bound), linetype = "dashed", color = "darkgrey") +
+  labs(title = "PCA: PC1 vs PC2 by Chip Type with +/- 6SD Outlier Bounds",
+       x = paste0("PC1 (", pc1_var, "% variance)"), 
+       y = paste0("PC2 (", pc2_var, "% variance)")) +
+  theme_bw() +
+  guides(color = guide_legend(title = "Chip Platform"))
+
+print(p_chip_bounds)
+
+
+# --- Plot 3: PC1 vs PC2, Colored by Mapped Phenotype, with Outlier Bounds ---
+# Filter out the 2 individuals with NA mapped phenotype for cleaner plotting if 'pca_cleaned_pheno' exists
+# Otherwise, ggplot will warn about removing rows with NAs for color.
+plot_data_pheno_bounds <- if(exists("pca_cleaned_pheno")) pca_cleaned_pheno else pca_with_metadata
+
+p_pheno_bounds <- ggplot(plot_data_pheno_bounds, aes(x = PC1, y = PC2, color = phenotype_labeled)) +
+  geom_point(alpha = 0.7, size = 2) +
+  geom_vline(xintercept = c(pc1_lower_bound, pc1_upper_bound), linetype = "dashed", color = "darkgrey") +
+  geom_hline(yintercept = c(pc2_lower_bound, pc2_upper_bound), linetype = "dashed", color = "darkgrey") +
+  labs(title = "PCA: PC1 vs PC2 by Mapped Eye Color with +/- 6SD Outlier Bounds",
+       x = paste0("PC1 (", pc1_var, "% variance)"), 
+       y = paste0("PC2 (", pc2_var, "% variance)")) +
+  theme_bw() +
+  guides(color = guide_legend(title = "Mapped Eye Color"))
+
+print(p_pheno_bounds)
+```
+
+
+```{r}
+if (nrow(outlier_pca_samples) > 0) {
+  write.table(outlier_pca_samples[, c("FID", "IID")], "pca_outliers_to_remove.txt",
+              row.names = FALSE, col.names = FALSE, quote = FALSE, sep = "\t")
+  cat("Written PCA outliers to pca_outliers_to_remove.txt\n")
+} else {
+  cat("No PCA outliers identified with +/- 6SD criteria on PC1/PC2.\n")
+  # Create an empty file if your PLINK script expects one
+  # file.create("pca_outliers_to_remove.txt") 
+}
+```
+
