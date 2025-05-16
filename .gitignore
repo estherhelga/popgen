@@ -3,3 +3,9 @@
 .RData
 .Ruserdata
 *.bed
+*.linear
+*.genome
+*.hwe
+*.imiss
+*.frq
+gwas_project_v2/final_analysis_cohort_hwe_filtered.bim

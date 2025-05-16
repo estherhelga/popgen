@@ -1057,4 +1057,196 @@ No individuals were removed based on global F_MISS thresholds at this stage. The
 
 # Minor Allele Frequency (MAF) Filter
 
+*Purpose*
+To remove SNPs with very low minor allele frequencies (MAF) from the `final_analysis_cohort_unrelated` dataset. SNPs with extremely low MAF typically have very little statistical power to detect associations in a GWAS of the current sample size. They can also sometimes be more prone to genotyping errors, and tests involving them can be less stable. Filtering by MAF reduces the multiple testing burden by removing these less informative SNPs and focuses the analysis on variants common enough to yield potentially meaningful results with the available sample size.
+
+*Methodology*
+
+The PLINK command `--maf <threshold>` is used to filter out SNPs where the frequency of the minor allele is below the specified threshold. A common threshold is 0.01 (1%), meaning SNPs where the rarer allele is present in less than 1% of the chromosomes in the sample will be removed. Some studies use 0.05 (5%), especially with smaller sample sizes or for initial exploratory analyses. Given your sample size of 1196, a MAF of 0.01 is a reasonable starting point.
+
+We ran the following PLINK command, which calculated allele frequencies without filtering any out:
+
+plink --bfile final_analysis_cohort_unrelated \
+      --freq \
+      --out current_cohort_allele_freqs
+
+We then used the output in R to visualize the distribution of MAF, so we would know which threshold would serve us best. We see that by far the biggest bin in the histogram is below 0.01, so thats the threshold we went with. You can see the R script under maf_threshold_calcs.rmd, and the histrogram under MAF_exclusion_threshold_histogram.png
+
+Input Dataset for MAF Filtering:
+*   `final_analysis_cohort_unrelated.bed/bim/fam`
+    *   This dataset contains: 1196 individuals and 1,306,452 SNPs (after OmniExpress removal, PCA outlier removal, and relatedness filtering).
+
+*Step 1: Apply MAF Filter using PLINK*
+
+Run PLINK to filter SNPs based on MAF:
+
+plink --bfile final_analysis_cohort_unrelated \
+      --maf 0.01 \
+      --make-bed \
+      --out final_analysis_cohort_maf_filtered
+
+Parameters:
+--bfile final_analysis_cohort_unrelated: Specifies the input dataset.
+--maf 0.01: Sets the minimum MAF threshold. SNPs with MAF below 0.01 will be removed. You can adjust this value (e.g., to 0.05) if desired, but 0.01 is a common choice.
+--make-bed: Instructs PLINK to output the filtered dataset in binary PED format.
+--out final_analysis_cohort_maf_filtered: Specifies the prefix for the output files.
+
+Outcome
+A new PLINK binary fileset: final_analysis_cohort_maf_filtered.bed/bim/fam.
+This dataset will contain the same 1196 individuals but will have fewer SNPs than the input dataset, as rare variants have been removed.
+The final_analysis_cohort_maf_filtered.log file will detail:
+The number of SNPs initially present.
+The number of SNPs removed due to the MAF filter.
+The number of SNPs remaining.
+
+Action: Review the PLINK log file (final_analysis_cohort_maf_filtered.log) to note how many SNPs were removed and how many remain. This gives an indication of the proportion of rare variants in your dataset.
+
+Considerations and Rationale for MAF Threshold Choice (e.g., 0.01):
+Statistical Power: Detecting associations for very rare variants requires extremely large sample sizes or very large effect sizes. With N=1196, power for variants with MAF < 0.01 is generally low unless the effect size is substantial.
+Genotyping Accuracy: Very rare variants can sometimes be enriched for genotyping errors.
+Allele Frequency Estimation: Frequencies for very rare alleles are estimated with less precision.
+Multiple Testing: Removing these low-MAF SNPs reduces the total number of tests performed in the GWAS.
+
+Choosing a MAF threshold is a balance. Too strict (e.g., MAF 0.10) might remove potentially interesting, less common variants. Too lenient (e.g., MAF 0.001) might retain many SNPs with little power, increasing computational burden and multiple testing. For a study of this size, MAF 0.01 is a standard and defensible choice. MAF 0.05 is also common and more conservative (removes more SNPs).
+
+*356459 variants removed due to minor allele threshold(s)*
+*949993 variants and 1196 people pass filters and QC*
+
 # Hardy-Weinberg Equilibrium (HWE) Filter
+
+*Purpose*
+To identify and remove SNPs that show a significant deviation from Hardy-Weinberg Equilibrium (HWE). HWE describes a principle stating that allele and genotype frequencies in a population will remain constant from generation to generation in the absence of other evolutionary influences (like mutation, selection, genetic drift, gene flow, and non-random mating). Significant deviation from HWE for a particular SNP can indicate:
+*   Genotyping errors for that SNP.
+*   Population stratification (though PCA covariates aim to handle broader stratification).
+*   True biological selection at or near the locus.
+*   Issues with copy number variations affecting genotyping.
+
+In GWAS QC, the primary concern is often genotyping error, so SNPs deviating significantly from HWE are typically removed.
+
+*Methodology*
+
+PLINK's `--hwe <p-value threshold>` command is used to calculate HWE p-values for each SNP and filter out those below the specified significance threshold. The test is usually performed on a specific group of individuals, ideally **unrelated controls** if conducting a case-control study. If you don't have distinct cases and controls (as with eye color, which is a trait, not a disease status), or if defining controls is complex, the test can be performed on **all founders** or **all individuals** in the current sample set, while being mindful that true population structure can cause HWE deviations. Given you've handled relatedness and will use PCA for structure, applying it to all current individuals is a common approach for trait GWAS.
+
+We ran the following PLINK command to calculate out HWE p values for all our SNPS, which we then took the output file from and visualized the different thresholds in R:
+
+plink --bfile final_analysis_cohort_maf_filtered \
+      --hardy \
+      --out current_cohort_hwe_stats
+
+From the visualization we chose to stick with 1e-6 as our p value. 
+
+Input Dataset for HWE Filtering:
+*   `final_analysis_cohort_maf_filtered.bed/bim/fam`
+    *   This dataset contains: 1196 individuals and 949,993 SNPs (after MAF filtering).
+
+*Step 1: Apply HWE Filter using PLINK*
+
+A common p-value threshold for HWE filtering in GWAS is `1e-6`. This is a relatively stringent threshold, aiming to remove only SNPs with strong evidence of HWE deviation.
+
+Run PLINK to filter SNPs based on HWE:
+
+plink --bfile final_analysis_cohort_maf_filtered \
+      --hwe 1e-6 \
+      --make-bed \
+      --out final_analysis_cohort_hwe_filtered
+
+
+Parameters:
+--bfile final_analysis_cohort_maf_filtered: Specifies the input dataset.
+--hwe 1e-6: Sets the HWE p-value significance threshold. SNPs with a p-value below 1e-6 (i.e., more significant deviation) will be removed.
+
+By default, PLINK applies the HWE test to founders, or all individuals if founder status isn't clear or relevant (which is likely your case here). You can add options like --hwe-all to force it on all, or specify a case/control context if you had one. For your trait data, PLINK's default behavior of testing across all unrelated individuals is generally appropriate.
+--make-bed: Instructs PLINK to output the filtered dataset in binary PED format.
+--out final_analysis_cohort_hwe_filtered: Specifies the prefix for the output files.
+
+Outcome
+A new PLINK binary fileset: final_analysis_cohort_hwe_filtered.bed/bim/fam.
+This dataset will contain the same 1196 individuals but may have fewer SNPs than the input dataset, as SNPs significantly deviating from HWE have been removed.
+The final_analysis_cohort_hwe_filtered.log file will detail:
+The number of SNPs initially present.
+The number of SNPs removed due to the HWE filter.
+The number of SNPs remaining.
+
+Action: Review the PLINK log file (final_analysis_cohort_hwe_filtered.log) to note how many SNPs were removed and how many remain. Typically, only a small fraction of SNPs are removed by HWE filtering if prior QC has been good and the MAF filter has been applied.
+
+Considerations for HWE Filtering:
+Threshold Choice: 1e-6 is common. More lenient thresholds (e.g., 1e-4 or 1e-3) would remove more SNPs but might also remove SNPs deviating due to minor population structure rather than just error. Stricter thresholds (e.g., 1e-10) remove fewer.
+Population Context: HWE assumptions are best met in large, randomly mating populations. Your openSNP cohort is diverse. While PCA covariates will adjust for major population structure in the association analysis, some residual fine-scale structure or admixture could still cause SNPs to deviate from HWE. The stringent 1e-6 threshold helps mitigate removing SNPs for these reasons, focusing more on potential genotyping errors.
+Case/Control Studies: In case-control studies, HWE is typically only tested in the control group, as allele frequencies (and thus HWE) in cases might be skewed by the disease association itself for true causal variants. For a quantitative trait like eye color, testing on all (unrelated) individuals is standard.
+
+
+*949579 variants and 1196 people pass filters and QC.* 
+
+
+# GWAS design
+
+With our phenotypes and our 4 category eye color model a solid and "simple" start point is for us to treat this as a quantitative trait, which opens the door to Linear Regression. This essentially is done by telling PLINK to treat our phenotype scale, which is coded as 0-3, as a quantitative score, which PLINK can easily use to run linear regression on for each SNP: Phenotype_Score ~ Genotype + Covariates 
+
+This model is very easy to implement, and due to previous liteature suggesting that there "somewhat" a linear relationship between the genetic effect and the ordered phenotype (melanin amount = eye color shade), we can assume that this model would have enough power. However, this assumes that the "distance" between Blue and Green/Blue-Green is the same as the "distance" between Green/Blue-Green and Hazel, which we cant confirm is biologically true. Violations of this assumption can reduce power or lead to misinterpretation.  
+
+This can be our initial GWAS design, and for later additional analysis, one option would be to convert our data so that it is compatible with PLINK2, which would allow us to do Ordinal Logistic Regression, which is more statistically fitting for our model, due to the ordered categorical data. It does not assume equal spacing, but it respects the order (our order being light to dark). We find this appropriate due to previous studies which suggest that the "lightness" of eyecolor is tied to the individuals melanin production, meaning that more melanin production equals more eye pigment, which means darker eyes.  
+
+If we wanted to start at a more natural point for our further analysis, we could skip assuming order of the eye colors. This would allow us to do Multinomial Logistic Regression. This compares each eyecolor category to a reference category. However, we feel that since we have solid evidence suggesting that there is an order to eyecolor, this is not the model we want to go with. 
+
+
+# GWAS 4 category Quantitative Trait Linear Model
+
+The Model: For each of your ~950,000 SNPs, PLINK is fitting a linear regression model:
+Y = β₀ + β₁ * SNP + β₂ * PC1 + β₃ * PC2 + β₄ * PC3 + β₅ * PC4 + ε
+
+Where:
+Y is your eye color score (0-3).
+SNP is the genotype of the individual at that SNP (coded as 0, 1, or 2 copies of the tested allele).
+PC1 to PC4 are the values of the principal components for that individual.
+β₀ is the intercept.
+β₁ is the effect size of the SNP on eye color – this is what you're most interested in.
+β₂ to β₅ are the effects of the PCs.
+ε is the error term.
+
+The Hypothesis Test: For each SNP, PLINK tests the null hypothesis that β₁ = 0 (i.e., the SNP has no effect on eye color, after accounting for PCs). The p-value tells you the probability of observing an effect as large as or larger than β₁ if the null hypothesis were true.
+
+*Purpose*
+To perform a genome-wide association study to identify genetic variants associated with the 4-category eye color phenotype. A linear regression model will be used, treating the eye color categories as a quantitative score (0-3). The model will include the top 4 Principal Components (PCs) and sex as covariates to control for population stratification and potential sex-specific effects, respectively.
+
+*Input Files*
+1.  **Genotypes:** `final_analysis_cohort_hwe_filtered.bed/bim/fam`
+    *   Contains: 1196 individuals, 949,579 SNPs. This is the fully QCed dataset.
+2.  **Phenotypes (Original Full):** `eye_color_updated.txt`
+    *   Contains: FID, IID, and the 4-category eye color phenotype score (0-3) for potentially more than 1196 individuals.
+3.  **Principal Components (Eigenvectors):** `final_pca_results_no_outliers.eigenvec`
+    *   Contains: FID, IID, PC1, PC2, ..., PC10 for the 1196 individuals.
+4.  **FAM file for Sex Information:** `final_analysis_cohort_hwe_filtered.fam`
+    *   Contains: FID, IID, and sex codes (1=male, 2=female) for the 1196 individuals.
+
+*Methodology - File Preparation (R)*
+
+To ensure clarity and that only the 1196 individuals in the final QCed dataset are used with corresponding phenotypes and covariates, new subsetted phenotype and combined covariate files will be created using R. the R script XXX creates the new phenotype file: *gwas_pheno_1196.txt* and the new combined file: *gwas_covariates_pcs_sex_1196.txt*
+
+In these files, Sex was coded as 0 for males (FAM code 1) and 1 for females (FAM code 2). Two individuals had an undefined sex code (0) in the final FAM file and were consequently assigned an NA for the sex covariate, despite previous sex checks and filtering. These two individuals were therefore excluded from the GWAS analysis by PLINK due to missing covariate data, resulting in an effective sample size of 1194 for the association tests.
+
+*Methodology - GWAS Execution (PLINK)*
+A linear regression model will be run for each SNP using PLINK 1.9.
+
+PLINK Command:
+
+plink --bfile final_analysis_cohort_hwe_filtered \
+      --pheno gwas_pheno_1196.txt \
+      --covar gwas_covariates_pcs_sex_1196.txt \
+      --linear \
+      --allow-no-sex \
+      --out gwas_eyecolor_linear_4pcs_sex
+
+
+Breakdown of PLINK command:
+--bfile final_analysis_cohort_hwe_filtered: Specifies the final QCed genotype dataset (1196 individuals, 949,579 SNPs).
+--pheno gwas_pheno_1196.txt: Specifies the subsetted phenotype file containing the 4-category eye color score for the 1196 individuals.
+--covar gwas_covariates_pcs_sex_1196.txt: Specifies the combined covariate file (top 4 PCs and sex) for the 1196 individuals.
+--linear: Instructs PLINK to perform linear regression. The model for each SNP is:
+EyeColorScore ~ SNP_Genotype + PC1 + PC2 + PC3 + PC4 + Sex + Intercept.
+The additive genetic model (ADD) is tested by default for SNPs.
+--allow-no-sex: Included for consistency, although sex is now explicitly used as a covariate and should be defined for all individuals in the covariate file. PLINK's primary use of this flag is for phenotype inclusion when sex in the FAM file is '0'; here, the covariate file dictates sex usage in the model.
+--out gwas_eyecolor_linear_4pcs_sex: Specifies the prefix for the output files.
+
+
+# GWAS 4 category Quantitative Trait Linear Model visualization
+

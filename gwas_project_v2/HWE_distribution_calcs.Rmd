@@ -1,0 +1,102 @@
+---
+title: "Untitled"
+author: "Esther Helga"
+date: "2025-05-16"
+output: html_document
+---
+
+```{r}
+
+# Load necessary library
+library(ggplot2)
+library(scales) # For formatting axes, like percent or scientific notation
+
+# Load the HWE statistics file
+# The .hwe file can have different column sets depending on whether it's all samples,
+# cases/controls, etc. We'll assume the common columns for "ALL" samples.
+# PLINK's .hwe file might have leading spaces, so read.table is usually robust.
+# Adjust header=TRUE and skip if needed based on your file's exact format.
+# Often, the first line is a header, but sometimes it might need 'skip = X' if there are comment lines.
+# It's good to manually inspect the first few lines of your .hwe file.
+hwe_data <- read.table("current_cohort_hwe_stats.hwe", header = TRUE, stringsAsFactors = FALSE, comment.char = "")
+
+# Check the column names and first few rows
+# Common columns: CHR, SNP, TEST, A1, A2, GENO, O(HET), E(HET), P
+# 'P' is the HWE p-value.
+head(hwe_data)
+colnames(hwe_data) # Verify the P-value column name, usually 'P'
+
+# --- Plot 1: Histogram of HWE p-values ---
+# P-values should be uniformly distributed under the null hypothesis (true HWE).
+# Deviations (e.g., an excess of small p-values) can indicate issues.
+p_hwe_hist <- ggplot(hwe_data, aes(x = P)) +
+  geom_histogram(bins = 50, fill = "skyblue", color = "black") +
+  labs(title = "Distribution of HWE P-values",
+       x = "HWE Exact Test P-value",
+       y = "Frequency (Number of SNPs)") +
+  theme_minimal()
+print(p_hwe_hist)
+
+# --- Plot 2: Quantile-Quantile (QQ) plot of HWE p-values ---
+# This is a more standard way to look at p-value distributions.
+# If p-values are uniform (as expected under the null), they should fall along the y=x line.
+# We expect many SNPs to conform to HWE, so most points should be on the line.
+# An inflation of small p-values (points deviating upwards early) suggests widespread issues
+# or true deviations.
+
+# Create observed and expected p-values for the QQ plot
+observed_p_values <- sort(hwe_data$P)
+expected_p_values <- ppoints(length(observed_p_values)) # Generates sequence for uniform distribution
+
+qq_data <- data.frame(
+  obs = -log10(observed_p_values),
+  exp = -log10(expected_p_values)
+)
+
+# Remove any -log10(0) = Inf values if P-values of 0 exist (PLINK might report very small numbers instead)
+qq_data <- qq_data[is.finite(qq_data$obs) & is.finite(qq_data$exp), ]
+
+
+p_hwe_qq <- ggplot(qq_data, aes(x = exp, y = obs)) +
+  geom_point(alpha = 0.5) +
+  geom_abline(intercept = 0, slope = 1, color = "red", linetype = "dashed") +
+  labs(title = "QQ Plot of HWE P-values",
+       x = expression(Expected ~ -log[10](P)),
+       y = expression(Observed ~ -log[10](P))) +
+  theme_minimal()
+print(p_hwe_qq)
+
+
+# --- Exploring different HWE p-value thresholds ---
+hwe_thresholds_to_test <- c(1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8, 1e-10) # Example thresholds
+
+snps_remaining_hwe <- numeric(length(hwe_thresholds_to_test))
+snps_removed_hwe <- numeric(length(hwe_thresholds_to_test))
+total_snps_maf_filtered <- nrow(hwe_data)
+
+for (i in 1:length(hwe_thresholds_to_test)) {
+  threshold <- hwe_thresholds_to_test[i]
+  snps_remaining_hwe[i] <- sum(hwe_data$P >= threshold) # Keep if P-value is GREATER OR EQUAL
+  snps_removed_hwe[i] <- total_snps_maf_filtered - snps_remaining_hwe[i]
+}
+
+hwe_impact_df <- data.frame(
+  Threshold_Scientific = sprintf("%.0e", hwe_thresholds_to_test), # For display
+  Threshold_Numeric = hwe_thresholds_to_test,
+  SNPs_Remaining = snps_remaining_hwe,
+  SNPs_Removed = snps_removed_hwe,
+  Percent_SNPs_Remaining = (snps_remaining_hwe / total_snps_maf_filtered) * 100
+)
+
+# Order by threshold for plotting
+hwe_impact_df <- hwe_impact_df[order(hwe_impact_df$Threshold_Numeric), ]
+# Make Threshold_Scientific a factor to maintain order in ggplot
+hwe_impact_df$Threshold_Scientific <- factor(hwe_impact_df$Threshold_Scientific, levels = hwe_impact_df$Threshold_Scientific)
+
+
+print(hwe_impact_df)
+
+
+
+```
+

@@ -1,0 +1,57 @@
+---
+title: "Untitled"
+author: "Esther Helga"
+date: "2025-05-16"
+output: html_document
+---
+
+```{r}
+
+# Load the frequency data
+freq_data <- read.table("current_cohort_allele_freqs.frq", header = TRUE, stringsAsFactors = FALSE)
+
+# Check the range of MAF
+summary(freq_data$MAF)
+
+# Plot histogram of MAF
+# Using base R graphics for simplicity here, as per previous examples.
+# ggplot2 can also be used for more advanced aesthetics if preferred.
+hist_info <- hist(freq_data$MAF, 
+                  breaks = 100,  # You can adjust the number of breaks
+                  main = "Distribution of MAF in Current Cohort", 
+                  xlab = "MAF",
+                  col = "lightblue", # Color for the bars
+                  border = "black") # Color for the border of the bars
+
+# Add a red vertical line at MAF = 0.03
+abline(v = 0.01, col = "red", lwd = 2, lty = 2) # lwd for line width, lty for line type (dashed)
+
+# Add a legend (optional, but good for clarity)
+legend("topright", legend = "MAF = 0.01 Threshold", col = "red", lwd = 2, lty = 2, bty = "n") # bty="n" removes legend box
+
+# Print how many SNPs are above and below this 0.03 threshold
+snps_below_0.03 <- sum(freq_data$MAF < 0.03)
+snps_at_or_above_0.03 <- sum(freq_data$MAF >= 0.03)
+total_snps <- nrow(freq_data)
+
+cat("Total SNPs initially:", total_snps, "\n")
+cat("Number of SNPs with MAF < 0.03:", snps_below_0.03, "\n")
+cat("Number of SNPs with MAF >= 0.03:", snps_at_or_above_0.03, "\n")
+cat("Percentage of SNPs with MAF >= 0.03:", (snps_at_or_above_0.03 / total_snps) * 100, "%\n")
+
+# If you want to use ggplot2 for a potentially nicer plot:
+library(ggplot2)
+
+p_maf_hist <- ggplot(freq_data, aes(x = MAF)) +
+  geom_histogram(bins = 100, fill = "lightblue", color = "black") +
+  geom_vline(xintercept = 0.01, color = "red", linetype = "dashed", size = 1) +
+  annotate("text", x = 0.035, y = max(hist_info$counts) * 0.9, label = "MAF = 0.01", color = "red", hjust = 0) + # Adjust y and x for label position
+  labs(title = "Distribution of MAF in Current Cohort",
+       x = "Minor Allele Frequency (MAF)",
+       y = "Frequency (Number of SNPs)") +
+  theme_minimal()
+
+print(p_maf_hist)
+
+```
+

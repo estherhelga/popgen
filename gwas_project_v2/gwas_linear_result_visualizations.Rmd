@@ -1,0 +1,141 @@
+---
+title: "Untitled"
+author: "Esther Helga"
+date: "2025-05-16"
+output: html_document
+---
+
+```{r}
+
+# Load necessary libraries
+library(qqman) # For Manhattan and QQ plots
+library(dplyr) # For data manipulation, if needed (e.g., filtering NAs)
+library(ggplot2) # For potentially customizing plots further if desired, though qqman is often sufficient
+
+
+```
+
+
+```{r}
+
+# --- 1. Load GWAS Results ---
+gwas_results_file <- "gwas_eyecolor_linear_4pcs_sex.assoc.linear"
+gwas_data <- read.table(gwas_results_file, header = TRUE, stringsAsFactors = FALSE)
+
+# Check the header and first few rows to confirm column names
+head(gwas_data)
+colnames(gwas_data) # Expected columns: CHR, SNP, BP, A1, TEST, NMISS, BETA, STAT, P
+
+```
+
+
+```{r}
+
+# --- 2. Prepare Data for qqman ---
+# qqman expects specific column names:
+# - CHR: Chromosome (numeric)
+# - BP: Base Pair position (numeric)
+# - SNP: SNP identifier (character)
+# - P: P-value (numeric)
+
+# Ensure P-values are numeric and handle NAs
+gwas_data$P <- as.numeric(gwas_data$P)
+gwas_data_filtered <- gwas_data[!is.na(gwas_data$P), ] # Remove rows with NA P-values for plotting
+
+# Ensure CHR and BP are numeric
+gwas_data_filtered$CHR <- as.numeric(gwas_data_filtered$CHR)
+gwas_data_filtered$BP <- as.numeric(gwas_data_filtered$BP)
+
+# Filter out non-autosomal chromosomes if desired for standard Manhattan plots,
+# or ensure X, Y, MT are coded numerically if qqman handles them (e.g., 23, 24, 25/26)
+# For now, let's assume CHR is 1-22 or qqman can handle other numeric codes.
+# If you have CHR coded as X, Y, you might need to convert them to 23, 24.
+# Check unique chromosome values:
+unique(gwas_data_filtered$CHR) 
+# If CHR 23, 24, 25, 26 are present from X, Y, PAR, MT, qqman should handle them if numeric.
+
+```
+
+
+```{r}
+
+# --- 3. Generate QQ Plot ---
+# The QQ plot helps assess P-value inflation.
+# The inflation factor (lambda, λ) can also be calculated.
+# A lambda close to 1.0 is good. Values > 1.05 or 1.1 might indicate inflation.
+
+# Calculate lambda (optional but informative)
+# For a QQ plot, we expect most p-values to follow the null.
+# Lambda is often calculated on the median chi-squared statistic.
+# Chi-squared statistic for 1 degree of freedom (like from a Wald test from regression beta/SE)
+# can be approximated from Z-scores (STAT column if it's a Z-score, or (BETA/SE)^2)
+# or from P-values directly using qchisq(1 - P_value, df = 1).
+# Let's use p-values as it's more direct here.
+chisq_stats <- qchisq(1 - gwas_data_filtered$P, df = 1)
+lambda <- median(chisq_stats, na.rm = TRUE) / qchisq(0.5, df = 1)
+print(paste("Genomic Inflation Factor (Lambda):", round(lambda, 3)))
+
+# Create QQ plot using qqman
+# The `qq()` function from qqman
+png("gwas_qqplot.png", width = 6, height = 6, units = "in", res = 300) # Save plot
+qq(gwas_data_filtered$P, 
+   main = paste0("QQ Plot of Eye Color GWAS P-values (Lambda = ", round(lambda, 3), ")"),
+   cex.main = 1.2, # Adjust title size
+   cex.axis = 1,   # Adjust axis label size
+   cex.lab = 1,    # Adjust axis title size
+   col = "blue4"   # Color of points
+   )
+dev.off()
+print("QQ plot saved as gwas_qqplot.png")
+
+```
+
+
+```{r}
+
+# --- 4. Generate Manhattan Plot ---
+# This plot shows -log10(P) for each SNP across chromosomes.
+# We need to define significance lines.
+genome_wide_sig_line <- -log10(5e-8)  # Standard genome-wide significance
+suggestive_sig_line <- -log10(1e-5)   # Common suggestive significance line
+
+# Create Manhattan plot using qqman
+# The `manhattan()` function
+png("gwas_manhattan_plot.png", width = 12, height = 6, units = "in", res = 300) # Save plot
+manhattan(gwas_data_filtered, 
+          main = "Manhattan Plot for Eye Color GWAS",
+          chr = "CHR", 
+          bp = "BP", 
+          snp = "SNP", 
+          p = "P",
+          col = c("skyblue3", "grey40"), # Alternating chromosome colors
+          genomewideline = genome_wide_sig_line, 
+          suggestiveline = suggestive_sig_line,
+          highlight = NULL, # You can provide a list of SNPs to highlight if you have candidates
+          chrlabs = NULL,   # You can provide custom chromosome labels if needed (e.g., "X", "Y")
+          cex.axis = 0.8,   # Adjust axis label size
+          ylim = c(0, max(-log10(gwas_data_filtered$P), na.rm=TRUE) + 1) # Ensure y-axis includes highest peak
+          ) 
+dev.off()
+print("Manhattan plot saved as gwas_manhattan_plot.png")
+
+```
+
+
+```{r}
+
+# Optional: Identify and list top SNPs
+# Sort by P-value and show the top N hits
+top_hits <- gwas_data_filtered %>% 
+              arrange(P) %>% 
+              head(20) # Show top 20 hits
+
+print("Top 20 GWAS hits:")
+print(top_hits[, c("SNP", "CHR", "BP", "A1", "BETA", "STAT", "P")])
+
+# Further annotation of top hits (e.g., finding nearby genes) would be a next step
+# using online tools like LocusZoom, FUMA, or by querying Ensembl/UCSC with positions.
+
+```
+
+

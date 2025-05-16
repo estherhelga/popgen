@@ -1,0 +1,93 @@
+---
+title: "Untitled"
+author: "Esther Helga"
+date: "2025-05-16"
+output: html_document
+---
+
+```{r}
+
+# --- Load necessary data ---
+# Load FAM file of the final cohort to get FID/IID list and sex
+final_fam <- read.table("final_analysis_cohort_hwe_filtered.fam", header = FALSE, 
+                        col.names = c("FID", "IID", "FATHER", "MOTHER", "SEX", "PHENOTYPE_DUMMY"), 
+                        stringsAsFactors = FALSE)
+
+# Load full original phenotype data
+# Assuming eye_color_updated.txt has FID, IID, PHENO_SCORE and no header
+all_pheno_data <- read.table("eye_color_updated.txt", header = FALSE, 
+                             col.names = c("FID", "IID", "EYE_COLOR_SCORE"), 
+                             stringsAsFactors = FALSE)
+
+# Load PCA eigenvector data (skip=1 if PLINK added a header, or header=TRUE if it's just column names)
+# Assuming PLINK output for eigenvec has FID and IID as first two columns, then PCs
+# For PLINK 1.9, eigenvec often has no header. For PLINK 2, it might. Adjust accordingly.
+# If no header, use header=FALSE and assign names. Let's assume no header here for PLINK 1.9 style.
+pca_data_full <- read.table("final_pca_results_no_outliers.eigenvec", header = FALSE, 
+                            stringsAsFactors = FALSE)
+# Assign column names: FID, IID, PC1, PC2, ... PC10
+pc_names <- c("FID", "IID", paste0("PC", 1:10)) 
+colnames(pca_data_full) <- pc_names[1:ncol(pca_data_full)]
+
+```
+
+
+```{r}
+
+# --- 1. Create Subsetted Phenotype File ---
+# Merge with final_fam to keep only the 1196 individuals and their phenotypes
+pheno_for_gwas <- merge(final_fam[, c("FID", "IID")], all_pheno_data, by = c("FID", "IID"))
+# Select only FID, IID, EYE_COLOR_SCORE for PLINK phenotype file
+pheno_for_plink <- pheno_for_gwas[, c("FID", "IID", "EYE_COLOR_SCORE")]
+
+write.table(pheno_for_plink, "gwas_pheno_1196.txt", 
+            row.names = FALSE, col.names = FALSE, quote = FALSE, sep = "\t")
+print("Subsetted phenotype file 'gwas_pheno_1196.txt' created.")
+
+```
+
+
+```{r}
+
+# --- 2. Create Combined Covariate File (PCs + Sex) ---
+# Subset PCA data for the 1196 individuals and select top 4 PCs
+pca_subset <- merge(final_fam[, c("FID", "IID")], pca_data_full, by = c("FID", "IID"))
+pcs_to_use <- pca_subset[, c("FID", "IID", "PC1", "PC2", "PC3", "PC4")] # Using top 4 PCs
+
+# Prepare sex covariate (0 for male, 1 for female)
+sex_covariate <- final_fam[, c("FID", "IID")]
+sex_covariate$SEX_COV <- ifelse(final_fam$SEX == 1, 0, # Male = 0
+                               ifelse(final_fam$SEX == 2, 1, NA)) # Female = 1, NA for others (should be none)
+
+# Check for any NAs in sex covariate (should be 0 if QC was complete)
+if(any(is.na(sex_covariate$SEX_COV))) {
+  warning("There are individuals with undefined sex (not 1 or 2) in the FAM file after QC!")
+  sex_covariate <- na.omit(sex_covariate) # Remove them if any, though this would create a mismatch
+}
+
+# Merge PCs and Sex Covariate
+combined_covariates <- merge(pcs_to_use, sex_covariate, by = c("FID", "IID"))
+# Select only FID, IID, PC1-PC4, SEX_COV for PLINK covariate file
+covariates_for_plink <- combined_covariates[, c("FID", "IID", "PC1", "PC2", "PC3", "PC4", "SEX_COV")]
+
+write.table(covariates_for_plink, "gwas_covariates_pcs_sex_1196.txt", 
+            row.names = FALSE, col.names = FALSE, quote = FALSE, sep = "\t")
+print("Combined covariate file 'gwas_covariates_pcs_sex_1196.txt' created.")
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
