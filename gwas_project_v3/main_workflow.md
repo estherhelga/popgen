@@ -1248,5 +1248,149 @@ The additive genetic model (ADD) is tested by default for SNPs.
 --out gwas_eyecolor_linear_4pcs_sex: Specifies the prefix for the output files.
 
 
-# GWAS 4 category Quantitative Trait Linear Model visualization
+# GWAS Results Visualization: Manhattan and QQ Plots
+
+*Purpose*
+To visualize the results of the genome-wide association study (GWAS) for eye color. Two main plots will be generated:
+1.  **Manhattan Plot:** Displays the strength of association (-log10 P-value) for each SNP across the genome, organized by chromosome and position. It helps to quickly identify chromosomal regions harboring SNPs with significant associations.
+2.  **QQ (Quantile-Quantile) Plot:** Compares the observed distribution of GWAS P-values against the expected uniform distribution under the null hypothesis of no association. It helps to assess overall inflation or deflation of test statistics, which can indicate issues like uncorrected population stratification, cryptic relatedness, or other systematic biases.
+
+*Input File*
+*   `gwas_eyecolor_linear_4pcs_sex.assoc.linear`: The output file from the PLINK linear regression, containing association statistics for each SNP (CHR, SNP, BP, P, etc.).
+
+*Methodology - Plotting in R*
+
+We started by loading our data into the R script gwas_linear_result_visualizations.rmd, and generated a QQ plot, our lamda and a Manhattan plot.
+
+*Discussion*
+
+When we visualized our resluts, and calculated our initial lamda, we already could see problems. With a lambda of almost 10, an unreadable QQ plot and a Manhattan plot with only one hit, we already know that something is causing problems. 
+
+The high lambda would, under normal circumstances, cause many peaks or hits to manifest on a Manhattan plot. However, when visualizing our data on a manhattan plot, we only had one hit/peak. This is often called the "winner takes it all" effect, and is usually caused by Extreme Stratification for a Highly Differentiated Trait. Eye color is a trait with extremely strong genetic differentiation that aligns with major ancestral populations (e.g., HERC2/OCA2 variants are at very different frequencies in European vs. African vs. East Asian populations).
+
+The hit in the Manhattan plot is actually a pretty big indicator of what went wrong. The hit is located on chromosome 15, which contains the HERC2/OCA2 region. The variants on this locus are major determinants of blue vs. brown eyes and have vastly different frequencies across global populations. Thus, this is an indicate that we have not correctly controlled for population stratification. 
+
+So, our next step is essentually to try and better control for population stratification.
+
+
+
+# Addressing Population Stratification in GWAS
+
+*Purpose*
+The initial GWAS run (using 4 PCs + sex as covariates) revealed severe genomic inflation (Lambda ≈ 9.7), as evidenced by the QQ plot. This indicates that population stratification is not adequately controlled. The following steps aim to improve stratification control by including more principal components (PCs) in the regression model.
+
+*Underlying Theory*
+Population stratification occurs when allele frequencies and phenotype distributions differ systematically across underlying ancestral subgroups within the study sample. If not accounted for, SNPs that are merely markers of ancestry (rather than being causally related to the trait) can show spurious associations. Principal Components (PCs) derived from genome-wide SNP data capture major axes of genetic variation, which often correspond to ancestral differences. Including these PCs as covariates in the GWAS regression model statistically adjusts for these broad ancestral effects, reducing false positives due to stratification. The goal is to include enough PCs to capture the relevant population structure that correlates with the trait, thereby reducing the genomic inflation factor (lambda) to an acceptable level (ideally close to 1.0).
+
+*Methodology - Iterative GWAS with Increased PCs*
+
+We will re-run the GWAS, systematically increasing the number of PCs used as covariates, and monitor the lambda value after each run. The PCs are taken from the `final_pca_results_no_outliers.eigenvec` file (which contains up to 10 PCs for the 1196 individuals who passed all QC prior to the GWAS run).
+
+**Key Files (already prepared or used previously):**
+*   **Genotypes:** `final_analysis_cohort_hwe_filtered.bed/bim/fam` (1196 individuals, 949,579 SNPs)
+*   **Phenotypes (Subsetted):** `gwas_pheno_1196.txt` (1196 individuals, created in previous R step)
+*   **Full PCA Eigenvectors:** `final_pca_results_no_outliers.eigenvec` (1196 individuals, 10 PCs)
+*   **FAM file for Sex:** `final_analysis_cohort_hwe_filtered.fam` (1196 individuals)
+
+**Step 1: Prepare New Covariate Files with More PCs (Using R)**
+
+We will create covariate files for, e.g., 10 PCs + Sex. We might also consider trying 6, 8, 15, or 20 PCs if needed, based on your scree plot and the results of these iterations. We did this in R, with some simple commands and data filtering. The new file being used as covariates is *gwas_covariates_10pcs_sex_1194.txt*
+
+
+**Step 2: Re-run GWAS with 10 PCs + Sex**
+
+PLINK Command:
+
+plink --bfile final_analysis_cohort_hwe_filtered \
+      --pheno gwas_pheno_1196.txt \
+      --covar gwas_covariates_10pcs_sex_1194.txt \
+      --linear \
+      --allow-no-sex \
+      --out gwas_eyecolor_linear_10pcs_sex
+
+*Action:* Note the new output prefix gwas_eyecolor_linear_10pcs_sex.
+
+**Step 3: Evaluate Lambda and QQ Plot for the New Results**
+
+Use the R script previously provided for visualization, but point it to the new results file:
+gwas_results_file <- "gwas_eyecolor_linear_10pcs_sex.assoc.linear"
+
+Using 10 PCs instead of 4, we see a drastic inprovement in our lambda (now 2.811), however, our QQ plot essentially looks unchanged. We will try using more PCs to see if that yields a positiver result, if not, we have to move on to a different approach. 
+
+However, turns out that we are using the wrong PC data as our covariates. The PCA data was calculated before the final filtering of related individuals, which means that they *might* be pulling/effecting the way the PCs are supposed to correct our data when they act as covariates. So before anything, we should try and recalculate the PCAs, this time 30 of them, then do the GWAS again and see if that has an effect. 
+
+# Addressing Population Stratification in GWAS (Revised Approach)
+
+*Purpose*
+The initial GWAS runs (using 4 and subsequently 10 PCs + sex as covariates) revealed severe and persistent genomic inflation (Lambda remaining high, e.g., 2.811 with 10 PCs), with a QQ plot shape indicative of uncontrolled population stratification. A critical review revealed that the Principal Components (PCs) used were derived from a cohort of 1412 individuals (post-PCA outlier removal but pre-relatedness filtering), while the GWAS was performed on a subsequent cohort of 1196 individuals (after relatedness filtering). Using PCs derived from a different sample set than the analysis set is suboptimal for stratification control.
+
+The following steps aim to:
+1.  Generate new PCs based on the correct final set of 1196 unrelated individuals.
+2.  Use an appropriate number of these new PCs to control for population stratification.
+3.  Re-run the GWAS and evaluate inflation.
+
+*Underlying Theory*
+Principal Components (PCs) must be calculated on the specific set of (preferably unrelated) individuals included in the association analysis to accurately capture and correct for population structure within that cohort. Using PCs from a different or larger ancestral pool can lead to incomplete or inappropriate adjustment.
+
+*Methodology - Generating Correct PCs and Iterative GWAS*
+
+**Key Files:**
+*   **Current Genotype Dataset for GWAS (but PCs need re-derivation):** `final_analysis_cohort_hwe_filtered.bed/bim/fam` (1196 individuals, 949,579 SNPs). This is the dataset *after* relatedness removal and all SNP QC (MAF, HWE).
+*   **Phenotypes (Subsetted for 1196):** `gwas_pheno_1196.txt`
+*   **FAM file for Sex (for 1196):** `final_analysis_cohort_hwe_filtered.fam`
+
+**Step 1: Prepare an LD-Pruned Dataset for the Correct 1196 Individuals**
+
+The dataset `final_analysis_cohort_hwe_filtered` contains all SNPs. For PCA, we need an LD-pruned version of *these 1196 individuals*.
+
+Input: final_analysis_cohort_hwe_filtered (1196 individuals, ~950k SNPs)
+
+1a. Exclude known high-LD regions
+
+plink --bfile final_analysis_cohort_hwe_filtered \
+      --exclude range high_ld_regions_exclude.txt \
+      --make-bed \
+      --out gwas_1196_ldregions_excluded
+
+1b. Perform window-based LD pruning
+
+plink --bfile gwas_1196_ldregions_excluded \
+      --indep-pairwise 50 5 0.2 \
+      --out gwas_1196_pruning_results
+
+plink --bfile gwas_1196_ldregions_excluded \
+      --extract gwas_1196_pruning_results.prune.in \
+      --make-bed \
+      --out gwas_1196_final_ld_pruned_for_pca
+
+Output: gwas_1196_final_ld_pruned_for_pca.bed/bim/fam. This file now contains the 1196 individuals and an LD-pruned set of SNPs derived specifically from them. Note the number of SNPs remaining.
+
+**Step 2: Re-calculate PCA on the Correct LD-Pruned 1196-Individual Dataset (Generate e.g., 30 PCs)**
+
+plink --bfile gwas_1196_final_ld_pruned_for_pca \
+      --pca 30 \
+      --out gwas_1196_pca_30pcs
+
+Outputs: gwas_1196_pca_30pcs.eigenvec (PCs for 1196 individuals) and gwas_1196_pca_30pcs.eigenval.
+
+**Step 3: Create a New Scree Plot (up to 30 PCs for the 1196 Individuals)**
+
+Use R with gwas_1196_pca_30pcs.eigenval to visualize variance explained. Examine this scree plot carefully to decide how many PCs (N_new_pcs) to test as covariates (e.g., start with 10, then try 15, 20 based on this plot). We chose 7.
+
+**Step 4: Prepare New Covariate File (using N_NEW_PCS_TO_TRY from gwas_1196_pca_30pcs.eigenvec + Sex)**
+
+Useing our covariate_creation_for_popstrat R script, we made a new file using that would be used as covariates, from the 7 PCs chosen plus sex. The output file is gwas_covariates_7pcs_sex_1194.txt
+
+**Step 5: Re-run GWAS with the Corrected and Potentially Increased Number of PCs + Sex**
+
+plink --bfile final_analysis_cohort_hwe_filtered \
+      --pheno gwas_pheno_1196.txt \
+      --covar gwas_covariates_7pcs_sex_1194.txt \
+      --linear \
+      --allow-no-sex \
+      --out gwas_eyecolor_linear_correct_7pcs_sex
+
+**Step 6: Evaluate Lambda and QQ Plot (Iteratively)**
+
+Using our gwas_linear_result_visualizations.rmd we will visualize the QQ plot again and calculate our lambda
 

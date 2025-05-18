@@ -1,0 +1,69 @@
+---
+title: "Untitled"
+author: "Esther Helga"
+date: "2025-05-18"
+output: html_document
+---
+
+
+```{r}
+
+# Load FAM file of the final cohort to get FID/IID list and sex
+final_fam <- read.table("final_analysis_cohort_hwe_filtered.fam", header = FALSE, 
+                        col.names = c("FID", "IID", "FATHER", "MOTHER", "SEX", "PHENOTYPE_DUMMY"), 
+                        stringsAsFactors = FALSE)
+
+```
+
+
+```{r}
+
+# Load PCA eigenvector data (ensure it's for the 1196 individuals)
+# Assuming PLINK output for eigenvec has FID and IID as first two columns, then PCs
+pca_data_full <- read.table("gwas_1196_pca_30pcs.eigenvec", header = FALSE, 
+                            stringsAsFactors = FALSE)
+# Assign column names: FID, IID, PC1, PC2, ... PC10
+pc_names <- c("FID", "IID", paste0("PC", 1:(ncol(pca_data_full)-2))) 
+colnames(pca_data_full) <- pc_names
+
+```
+
+
+```{r}
+
+# --- Create Covariate File for 10 PCs + Sex ---
+# (Remember, 2 individuals will be dropped due to undefined sex if using the sex covariate)
+# First, ensure we are working with the 1196 individuals
+pcs_subset_20 <- merge(final_fam[, c("FID", "IID")], pca_data_full[, c("FID", "IID", paste0("PC", 1:20))], by = c("FID", "IID"))
+
+# Prepare sex covariate (0 for male, 1 for female)
+sex_covariate_20 <- final_fam[, c("FID", "IID")]
+sex_covariate_20$SEX_COV <- ifelse(final_fam$SEX == 1, 0, # Male = 0
+                                 ifelse(final_fam$SEX == 2, 1, NA)) # Female = 1, NA for others
+
+# Merge PCs and Sex Covariate
+combined_covariates_20pcs_sex <- merge(pcs_subset_20, sex_covariate_20, by = c("FID", "IID"))
+
+# Filter out the 2 individuals with NA for SEX_COV to match PLINK's behavior
+# These are the individuals PLINK would exclude anyway if SEX_COV is NA.
+# This ensures the covariate file provided to PLINK has complete data for all included covariates.
+combined_covariates_20pcs_sex_filtered <- na.omit(combined_covariates_20pcs_sex) 
+# This should result in 1194 individuals if 2 had NA sex.
+
+# Select columns for PLINK: FID, IID, PC1-PC10, SEX_COV
+covariates_for_plink_20pcs_sex <- combined_covariates_20pcs_sex_filtered[, c("FID", "IID", paste0("PC", 1:20), "SEX_COV")]
+
+
+```
+
+
+```{r}
+
+write.table(covariates_for_plink_20pcs_sex, "gwas_covariates_20pcs_sex_1194.txt", 
+            row.names = FALSE, col.names = FALSE, quote = FALSE, sep = "\t")
+print(paste("Covariate file 'gwas_covariates_20pcs_sex_1194.txt' created for", nrow(covariates_for_plink_20pcs_sex), "individuals."))
+# The R script should confirm it wrote 1194 lines if 2 individuals had NA sex.
+
+```
+
+

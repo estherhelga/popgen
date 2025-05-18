@@ -19,7 +19,10 @@ library(ggplot2) # For potentially customizing plots further if desired, though 
 ```{r}
 
 # --- 1. Load GWAS Results ---
-gwas_results_file <- "gwas_eyecolor_linear_4pcs_sex.assoc.linear"
+# gwas_results_file <- "gwas_eyecolor_linear_4pcs_sex.assoc.linear"
+# gwas_data <- read.table(gwas_results_file, header = TRUE, stringsAsFactors = FALSE)
+
+gwas_results_file <- "gwas_eyecolor_linear_correct_20pcs_sex.assoc.linear"
 gwas_data <- read.table(gwas_results_file, header = TRUE, stringsAsFactors = FALSE)
 
 # Check the header and first few rows to confirm column names
@@ -61,7 +64,7 @@ unique(gwas_data_filtered$CHR)
 
 # --- 3. Generate QQ Plot ---
 # The QQ plot helps assess P-value inflation.
-# The inflation factor (lambda, λ) can also be calculated.
+# The inflation factor (lambda, N;) can also be calculated.
 # A lambda close to 1.0 is good. Values > 1.05 or 1.1 might indicate inflation.
 
 # Calculate lambda (optional but informative)
