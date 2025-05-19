@@ -22,7 +22,7 @@ library(ggplot2) # For potentially customizing plots further if desired, though 
 # gwas_results_file <- "gwas_eyecolor_linear_4pcs_sex.assoc.linear"
 # gwas_data <- read.table(gwas_results_file, header = TRUE, stringsAsFactors = FALSE)
 
-gwas_results_file <- "gwas_eyecolor_linear_correct_20pcs_sex.assoc.linear"
+gwas_results_file <- "gwas_eyecolor_CORE_SUBGROUP_20pcs_sex.assoc.linear"
 gwas_data <- read.table(gwas_results_file, header = TRUE, stringsAsFactors = FALSE)
 
 # Check the header and first few rows to confirm column names
@@ -80,7 +80,7 @@ print(paste("Genomic Inflation Factor (Lambda):", round(lambda, 3)))
 
 # Create QQ plot using qqman
 # The `qq()` function from qqman
-png("gwas_qqplot.png", width = 6, height = 6, units = "in", res = 300) # Save plot
+png("gwas_qqplot_20pcs.png", width = 6, height = 6, units = "in", res = 300) # Save plot
 qq(gwas_data_filtered$P, 
    main = paste0("QQ Plot of Eye Color GWAS P-values (Lambda = ", round(lambda, 3), ")"),
    cex.main = 1.2, # Adjust title size
@@ -89,7 +89,7 @@ qq(gwas_data_filtered$P,
    col = "blue4"   # Color of points
    )
 dev.off()
-print("QQ plot saved as gwas_qqplot.png")
+print("QQ plot saved as gwas_qqplot_20pcs.png")
 
 ```
 
@@ -104,7 +104,7 @@ suggestive_sig_line <- -log10(1e-5)   # Common suggestive significance line
 
 # Create Manhattan plot using qqman
 # The `manhattan()` function
-png("gwas_manhattan_plot.png", width = 12, height = 6, units = "in", res = 300) # Save plot
+png("gwas_manhattan_plot_20pcs.png", width = 12, height = 6, units = "in", res = 300) # Save plot
 manhattan(gwas_data_filtered, 
           main = "Manhattan Plot for Eye Color GWAS",
           chr = "CHR", 
@@ -120,7 +120,7 @@ manhattan(gwas_data_filtered,
           ylim = c(0, max(-log10(gwas_data_filtered$P), na.rm=TRUE) + 1) # Ensure y-axis includes highest peak
           ) 
 dev.off()
-print("Manhattan plot saved as gwas_manhattan_plot.png")
+print("Manhattan plot saved as gwas_manhattan_plot20.png")
 
 ```
 

@@ -1,0 +1,180 @@
+---
+title: "Untitled"
+author: "Esther Helga"
+date: "2025-05-19"
+output: html_document
+---
+
+```{r}
+
+library(ggplot2)
+library(dplyr)
+
+```
+
+```{r}
+
+# --- Load Data ---
+# Load PCA eigenvector data (up to 30 PCs for 1196 individuals)
+pca_file <- "gwas_1196_pca_30pcs.eigenvec"
+pca_data <- read.table(pca_file, header = FALSE, stringsAsFactors = FALSE)
+# Assign column names: FID, IID, PC1, PC2, ... (up to PC30)
+pc_cols <- ncol(pca_data) - 2
+pc_names <- c("FID", "IID", paste0("PC", 1:pc_cols))
+colnames(pca_data) <- pc_names
+
+# Load phenotype data for coloring (ensure it's for the 1196 individuals)
+# Assuming gwas_pheno_1196.txt has FID, IID, EYE_COLOR_SCORE and no header
+pheno_data_1196 <- read.table("gwas_pheno_1196.txt", header = FALSE, 
+                              col.names = c("FID", "IID", "EYE_COLOR_SCORE"), 
+                              stringsAsFactors = FALSE)
+
+# Merge PCA data with phenotype data
+pca_pheno_merged <- merge(pca_data, pheno_data_1196, by = c("FID", "IID"))
+
+# Convert EYE_COLOR_SCORE to a factor for discrete coloring
+pca_pheno_merged$EYE_COLOR_FACTOR <- factor(pca_pheno_merged$EYE_COLOR_SCORE, 
+                                            levels = 0:3, 
+                                            labels = c("0:Blue", "1:Green/BG", "2:Hazel", "3:Brown"))
+
+```
+
+
+```{r}
+
+# --- Plot PC1 vs PC2, Colored by Eye Color Phenotype ---
+p_pc1_pc2_pheno <- ggplot(pca_pheno_merged, aes(x = PC1, y = PC2, color = EYE_COLOR_FACTOR)) +
+  geom_point(alpha = 0.7, size = 1.5) +
+  labs(title = "PCA of 1196 Individuals (PC1 vs PC2)",
+       subtitle = "Colored by 4-Category Eye Color Phenotype",
+       x = "Principal Component 1",
+       y = "Principal Component 2",
+       color = "Eye Color") +
+  theme_minimal() +
+  guides(color = guide_legend(override.aes = list(size=3))) # Make legend points bigger
+print(p_pc1_pc2_pheno)
+ggsave("pca_1196ind_pc1_pc2_by_pheno.png", plot = p_pc1_pc2_pheno, width = 8, height = 6, dpi = 300)
+
+# --- Plot PC1 vs PC3, Colored by Eye Color Phenotype ---
+p_pc1_pc3_pheno <- ggplot(pca_pheno_merged, aes(x = PC1, y = PC3, color = EYE_COLOR_FACTOR)) +
+  geom_point(alpha = 0.7, size = 1.5) +
+  labs(title = "PCA of 1196 Individuals (PC1 vs PC3)",
+       subtitle = "Colored by 4-Category Eye Color Phenotype",
+       x = "Principal Component 1",
+       y = "Principal Component 3",
+       color = "Eye Color") +
+  theme_minimal() +
+  guides(color = guide_legend(override.aes = list(size=3)))
+print(p_pc1_pc3_pheno)
+ggsave("pca_1196ind_pc1_pc3_by_pheno.png", plot = p_pc1_pc3_pheno, width = 8, height = 6, dpi = 300)
+
+```
+
+
+```{r}
+
+# --- Define SD Multiplier and Calculate Thresholds ---
+# !! ADJUST THIS VALUE TO EXPLORE DIFFERENT CUTOFFS !!
+SD_MULTIPLIER <- 2 # e.g., 2, 2.5, 3, 3.5, 4
+
+# Calculate mean and SD for PC1 and PC2 (based on all 1196 individuals)
+mean_pc1 <- mean(pca_pheno_merged$PC1, na.rm = TRUE)
+sd_pc1 <- sd(pca_pheno_merged$PC1, na.rm = TRUE)
+mean_pc2 <- mean(pca_pheno_merged$PC2, na.rm = TRUE)
+sd_pc2 <- sd(pca_pheno_merged$PC2, na.rm = TRUE)
+
+# Define outlier thresholds based on the SD_MULTIPLIER
+pc1_lower_sd_thresh <- mean_pc1 - (SD_MULTIPLIER * sd_pc1)
+pc1_upper_sd_thresh <- mean_pc1 + (SD_MULTIPLIER * sd_pc1)
+pc2_lower_sd_thresh <- mean_pc2 - (SD_MULTIPLIER * sd_pc2)
+pc2_upper_sd_thresh <- mean_pc2 + (SD_MULTIPLIER * sd_pc2)
+
+cat("Using SD Multiplier:", SD_MULTIPLIER, "\n")
+cat("PC1 Mean:", round(mean_pc1, 4), "SD:", round(sd_pc1, 4), 
+    "Bounds:", round(pc1_lower_sd_thresh, 4), "to", round(pc1_upper_sd_thresh, 4), "\n")
+cat("PC2 Mean:", round(mean_pc2, 4), "SD:", round(sd_pc2, 4), 
+    "Bounds:", round(pc2_lower_sd_thresh, 4), "to", round(pc2_upper_sd_thresh, 4), "\n")
+
+# --- Filter to get individuals within these SD-based thresholds for PC1 and PC2 ---
+# (You could extend this to PC3 and PC4 if needed, calculating their means, SDs, and thresholds too)
+core_cluster_individuals_sd <- pca_pheno_merged %>%
+  filter(PC1 >= pc1_lower_sd_thresh & PC1 <= pc1_upper_sd_thresh &
+         PC2 >= pc2_lower_sd_thresh & PC2 <= pc2_upper_sd_thresh)
+
+# Check how many individuals are in this core cluster
+num_core_sd <- nrow(core_cluster_individuals_sd)
+num_excluded_sd <- nrow(pca_pheno_merged) - num_core_sd
+cat("Number of individuals selected for the core cluster (within +/-", SD_MULTIPLIER, "SD for PC1 & PC2):", num_core_sd, "\n")
+cat("Number of individuals excluded:", num_excluded_sd, "\n")
+
+
+# --- Visualize the PCA plot with the SD-defined core area and selected individuals ---
+# Add a column to pca_pheno_merged to indicate if they are in the core cluster
+pca_pheno_merged$InCoreCluster_SD <- ifelse(
+  (pca_pheno_merged$PC1 >= pc1_lower_sd_thresh & pca_pheno_merged$PC1 <= pc1_upper_sd_thresh &
+   pca_pheno_merged$PC2 >= pc2_lower_sd_thresh & pca_pheno_merged$PC2 <= pc2_upper_sd_thresh),
+  "Core (SD based)", "Excluded (SD based)"
+)
+pca_pheno_merged$InCoreCluster_SD <- factor(pca_pheno_merged$InCoreCluster_SD, levels = c("Core (SD based)", "Excluded (SD based)"))
+
+
+# Plot PC1 vs PC2, highlighting the SD-selected core cluster and showing the SD box
+p_pc1_pc2_sd_highlight <- ggplot(pca_pheno_merged, aes(x = PC1, y = PC2, color = InCoreCluster_SD)) +
+  geom_point(alpha = 0.7, size = 1.5) +
+  scale_color_manual(values = c("Core (SD based)" = "blue", "Excluded (SD based)" = "grey")) +
+  # Add a rectangle representing the SD boundaries
+  geom_rect(aes(xmin = pc1_lower_sd_thresh, xmax = pc1_upper_sd_thresh, 
+                ymin = pc2_lower_sd_thresh, ymax = pc2_upper_sd_thresh),
+            fill = "transparent", color = "red", linetype = "dashed", linewidth = 0.8) +
+  labs(title = paste("PCA with Core Cluster (PC1 & PC2 within +/-", SD_MULTIPLIER, "SD)"),
+       subtitle = paste(num_core_sd, "individuals in core,", num_excluded_sd, "excluded"),
+       x = "Principal Component 1",
+       y = "Principal Component 2",
+       color = "Subgroup Status") +
+  theme_minimal() +
+  guides(color = guide_legend(override.aes = list(size=3))) 
+
+# Add phenotype coloring as well for context, perhaps using shape for core/excluded
+p_pc1_pc2_sd_pheno_shape <- ggplot(pca_pheno_merged, aes(x = PC1, y = PC2, color = EYE_COLOR_FACTOR, shape = InCoreCluster_SD)) +
+  geom_point(alpha = 0.7, size = 2) + # Increased size a bit
+  scale_shape_manual(values = c("Core (SD based)" = 16, "Excluded (SD based)" = 4)) + # Solid circle for core, X for excluded
+  geom_rect(aes(xmin = pc1_lower_sd_thresh, xmax = pc1_upper_sd_thresh, 
+                ymin = pc2_lower_sd_thresh, ymax = pc2_upper_sd_thresh),
+            fill = "transparent", color = "red", linetype = "dashed", size = 0.8,
+            # Need to ensure geom_rect doesn't inherit aes from ggplot() that it doesn't use
+            inherit.aes = FALSE) + 
+  labs(title = paste("PCA with Core Cluster (PC1 & PC2 within +/-", SD_MULTIPLIER, "SD)"),
+       subtitle = paste(num_core_sd, "individuals in core,", num_excluded_sd, "excluded. Colored by Phenotype."),
+       x = "Principal Component 1",
+       y = "Principal Component 2",
+       color = "Eye Color",
+       shape = "Subgroup Status") +
+  theme_minimal() +
+  guides(color = guide_legend(override.aes = list(size=3)),
+         shape = guide_legend(override.aes = list(size=3)))
+
+# Print the plots
+print(p_pc1_pc2_sd_highlight)
+ggsave(paste0("pca_1196ind_pc1_pc2_sd_",SD_MULTIPLIER,"_highlighted.png"), plot = p_pc1_pc2_sd_highlight, width = 9, height = 7, dpi = 300)
+
+print(p_pc1_pc2_sd_pheno_shape)
+ggsave(paste0("pca_1196ind_pc1_pc2_sd_",SD_MULTIPLIER,"_pheno_shape.png"), plot = p_pc1_pc2_sd_pheno_shape, width = 10, height = 7, dpi = 300)
+
+
+```
+
+```{r}
+
+# --- If you are satisfied with the SD_MULTIPLIER and the selected core_cluster_individuals_sd: ---
+# Create a list of FID and IID for these core individuals to keep
+core_individuals_to_keep_sd_list <- core_cluster_individuals_sd[, c("FID", "IID")]
+
+# Save this list to a file (ONLY DO THIS WHEN YOU'VE MADE YOUR FINAL DECISION ON SD_MULTIPLIER)
+write.table(core_individuals_to_keep_sd_list, "gwas_core_cluster_sd_individuals_to_keep.txt",
+            row.names = FALSE, col.names = FALSE, quote = FALSE, sep = "\t")
+print(paste("List of SD-based core cluster individuals saved to 'gwas_core_cluster_sd_individuals_to_keep.txt' for SD_MULTIPLIER =", SD_MULTIPLIER))
+
+```
+
+
+

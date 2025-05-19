@@ -9,7 +9,7 @@ output: html_document
 ```{r}
 
 # Load FAM file of the final cohort to get FID/IID list and sex
-final_fam <- read.table("final_analysis_cohort_hwe_filtered.fam", header = FALSE, 
+final_fam <- read.table("gwas_core_1124.fam", header = FALSE, 
                         col.names = c("FID", "IID", "FATHER", "MOTHER", "SEX", "PHENOTYPE_DUMMY"), 
                         stringsAsFactors = FALSE)
 
@@ -20,7 +20,7 @@ final_fam <- read.table("final_analysis_cohort_hwe_filtered.fam", header = FALSE
 
 # Load PCA eigenvector data (ensure it's for the 1196 individuals)
 # Assuming PLINK output for eigenvec has FID and IID as first two columns, then PCs
-pca_data_full <- read.table("gwas_1196_pca_30pcs.eigenvec", header = FALSE, 
+pca_data_full <- read.table("gwas_core_1124_pca_20pcs.eigenvec", header = FALSE, 
                             stringsAsFactors = FALSE)
 # Assign column names: FID, IID, PC1, PC2, ... PC10
 pc_names <- c("FID", "IID", paste0("PC", 1:(ncol(pca_data_full)-2))) 
@@ -59,9 +59,9 @@ covariates_for_plink_20pcs_sex <- combined_covariates_20pcs_sex_filtered[, c("FI
 
 ```{r}
 
-write.table(covariates_for_plink_20pcs_sex, "gwas_covariates_20pcs_sex_1194.txt", 
+write.table(covariates_for_plink_20pcs_sex, "gwas_covariates_20pcs_sex_1124.txt", 
             row.names = FALSE, col.names = FALSE, quote = FALSE, sep = "\t")
-print(paste("Covariate file 'gwas_covariates_20pcs_sex_1194.txt' created for", nrow(covariates_for_plink_20pcs_sex), "individuals."))
+print(paste("Covariate file 'gwas_covariates_20pcs_sex_1124.txt' created for", nrow(covariates_for_plink_20pcs_sex), "individuals."))
 # The R script should confirm it wrote 1194 lines if 2 individuals had NA sex.
 
 ```

@@ -1,0 +1,131 @@
+---
+title: "Untitled"
+author: "Esther Helga"
+date: "2025-05-19"
+output: html_document
+---
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(scales) # For percent scales
+
+```
+
+
+```{r}
+
+# --- Define Inputs Based on Your "Super-Core" (1124 individuals) GWAS Run ---
+
+# 1. The rsID of your top SNP from the gwas_eyecolor_CORE_SUBGROUP_6pcs_sex.assoc.linear results
+TOP_SNP_ID <- "rs12913832"  # !! REPLACE THIS WITH YOUR ACTUAL TOP SNP ID !!
+
+# 2. The .raw file created by PLINK --recode A for this top SNP
+# This file was generated using "gwas_core_1124" as the --bfile
+raw_genotype_file <- "top_snp_genotypes_for_supercore_analysis.raw"
+
+# 3. The phenotype file that was used for the GWAS on the "gwas_core_1124" individuals.
+# Your PLINK command used "gwas_pheno_1196.txt". We will load this and then filter
+# it to only include the individuals present in the .raw file (which are the 1124).
+# OR, if you created a specific phenotype file for the 1124 individuals, use that.
+# Let's assume you used gwas_pheno_1196.txt in the GWAS run.
+pheno_file_for_gwas_run <- "gwas_pheno_1196.txt" 
+
+# 4. The FAM file corresponding to the --bfile used for --recode A (i.e., gwas_core_1124.fam)
+# This is to get the exact list of 1124 individuals if needed for filtering phenotype.
+fam_file_of_gwas_cohort <- "gwas_core_1124.fam"
+
+```
+
+
+```{r}
+
+# --- Load Genotype Data from .raw file ---
+geno_data_raw <- read.table(raw_genotype_file, header = TRUE, stringsAsFactors = FALSE, na.strings = "NA")
+
+# The genotype column for your SNP will be named something like TOP_SNP_ID + specific allele (e.g., rs12913832_A)
+# Find the actual column name:
+genotype_col_name <- colnames(geno_data_raw)[grep(paste0("^",TOP_SNP_ID,"_"), colnames(geno_data_raw))]
+if(length(genotype_col_name) != 1) { # Should be exactly one match
+  stop(paste("Could not find a unique genotype column for", TOP_SNP_ID, 
+             "in .raw file. Found:", paste(genotype_col_name, collapse=", "), 
+             "Check SNP ID and .raw file header."))
+}
+print(paste("Using genotype column from .raw file:", genotype_col_name))
+
+# Select relevant columns and rename genotype column for clarity
+# The .raw file contains individuals from gwas_core_1124 (N=1124)
+geno_subset <- geno_data_raw[, c("FID", "IID", genotype_col_name)]
+colnames(geno_subset)[3] <- "GenotypeCount" # Count of the specified allele (0, 1, or 2)
+geno_subset <- na.omit(geno_subset) # Remove individuals with missing genotypes for this SNP
+print(paste("Number of individuals with non-missing genotypes for top SNP:", nrow(geno_subset)))
+
+# --- Load Phenotype Data ---
+# Load the phenotype file that was used in the GWAS run
+pheno_data_gwas_input <- read.table(pheno_file_for_gwas_run, header = FALSE, 
+                                   col.names = c("FID", "IID", "EYE_COLOR_SCORE"),
+                                   stringsAsFactors = FALSE)
+
+# --- Merge Genotype and Phenotype Data ---
+# Merge based on the individuals who have genotype data for the top SNP
+merged_data_top_snp <- merge(pheno_data_gwas_input, geno_subset, by = c("FID", "IID"))
+print(paste("Number of individuals after merging phenotype and genotype:", nrow(merged_data_top_snp)))
+
+
+# --- Convert to Factors for Plotting ---
+merged_data_top_snp$GenotypeFactor <- factor(merged_data_top_snp$GenotypeCount, levels = c(0, 1, 2)) # Ensure levels are 0,1,2
+merged_data_top_snp$EyeColorFactor <- factor(merged_data_top_snp$EYE_COLOR_SCORE,
+                                             levels = 0:3,
+                                             labels = c("0:Blue", "1:Green/BG", "2:Hazel", "3:Brown"))
+
+# Final clean dataset for plotting (shouldn't have NAs in these columns now)
+merged_data_top_snp_clean <- merged_data_top_snp[!is.na(merged_data_top_snp$GenotypeFactor) & 
+                                                 !is.na(merged_data_top_snp$EyeColorFactor), ]
+print(paste("Number of individuals in final clean dataset for plotting:", nrow(merged_data_top_snp_clean)))
+
+```
+```{r}
+
+# --- Create the Plots ---
+
+# Bar plot showing distribution of eye colors for each genotype
+pheno_dist_plot <- ggplot(merged_data_top_snp_clean, aes(x = GenotypeFactor, fill = EyeColorFactor)) +
+  geom_bar(position = "fill") + # "fill" makes each bar sum to 100%
+  labs(title = paste("Eye Color Distribution by Genotype at", TOP_SNP_ID),
+       x = paste("Genotype at", TOP_SNP_ID, "(Count of Allele:", gsub(paste0(TOP_SNP_ID,"_"), "", genotype_col_name), ")"), # Shows which allele is counted
+       y = "Proportion of Individuals",
+       fill = "Eye Color Category") +
+  scale_y_continuous(labels = scales::percent) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(size=12, face="bold"),
+        axis.title = element_text(size=14),
+        plot.title = element_text(size=16, face="bold"),
+        legend.title = element_text(size=12),
+        legend.text = element_text(size=10))
+
+print(pheno_dist_plot)
+ggsave(paste0("pheno_dist_by_genotype_", TOP_SNP_ID, ".png"), plot = pheno_dist_plot, width = 8, height = 6, dpi = 300)
+
+# Optional: Boxplot of quantitative score by genotype
+pheno_box_plot <- ggplot(merged_data_top_snp_clean, aes(x = GenotypeFactor, y = EYE_COLOR_SCORE, fill = GenotypeFactor)) +
+  geom_boxplot(alpha=0.7, outlier.shape = NA) + # Hide outliers from boxplot itself
+  geom_jitter(width = 0.2, alpha = 0.4, height = 0.1, size=1.5) + # Show individual points with some jitter
+  labs(title = paste("Eye Color Score by Genotype at", TOP_SNP_ID),
+       x = paste("Genotype at", TOP_SNP_ID, "(Count of Allele:", gsub(paste0(TOP_SNP_ID,"_"), "", genotype_col_name), ")"),
+       y = "Eye Color Score (0-3)") +
+  theme_minimal() +
+  theme(legend.position = "none",
+        axis.text.x = element_text(size=12, face="bold"),
+        axis.title = element_text(size=14),
+        plot.title = element_text(size=16, face="bold"))
+      
+print(pheno_box_plot)
+ggsave(paste0("pheno_boxplot_by_genotype_", TOP_SNP_ID, ".png"), plot = pheno_box_plot, width = 7, height = 6, dpi = 300)
+
+# Table of counts
+cat("\nCounts of Eye Color by Genotype for SNP:", TOP_SNP_ID, "\n")
+print(table(merged_data_top_snp_clean$GenotypeFactor, merged_data_top_snp_clean$EyeColorFactor))
+
+```
+
+

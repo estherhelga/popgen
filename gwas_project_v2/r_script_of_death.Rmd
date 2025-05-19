@@ -1,0 +1,111 @@
+```{r}
+# --- R SCRIPT TO PREPARE PHENOTYPE AND COVARIATE FILES FOR SUPER-CORE GWAS ---
+# (Run this in R, in your project directory)
+
+library(dplyr) # For data manipulation
+
+# --- Define Variables Based on Your Super-Core ---
+# !! REPLACE THESE WITH YOUR ACTUAL VALUES !!
+N_super_core <- 1048 # EXAMPLE: Actual number of individuals in your super-core
+N_SUPER_CORE_PCS_TO_USE <- 6 # EXAMPLE: Number of PCs you decided to use for this super-core GWAS
+
+# Construct filenames based on N_super_core
+super_core_fam_file <- paste0("gwas_super_core_N", N_super_core, "_finalqc.fam")
+super_core_pca_eigenvec_file <- paste0("gwas_super_core_N", N_super_core, "_pca_15pcs.eigenvec") # Assumes you calculated 15
+
+# Output filenames
+pheno_output_filename <- paste0("gwas_super_core_pheno_N", N_super_core, ".txt")
+covar_output_filename <- paste0("gwas_super_core_covar_", N_SUPER_CORE_PCS_TO_USE, "pcs_sex_N", N_super_core - 2, ".txt") # Assumes 2 will be dropped for sex
+
+# --- 1. Load Data for the Super-Core ---
+# Load FAM file of the super-core cohort to get FID/IID list and sex
+super_core_fam <- read.table(super_core_fam_file, header = FALSE, 
+                             col.names = c("FID", "IID", "FATHER", "MOTHER", "SEX", "PHENOTYPE_DUMMY"), 
+                             stringsAsFactors = FALSE)
+# Ensure we only have FID and IID for merging, and they are unique
+super_core_ids_sex <- distinct(super_core_fam[, c("FID", "IID", "SEX")])
+if(nrow(super_core_ids_sex) != N_super_core) {
+  warning(paste("Number of unique FID/IID in super_core_fam (", nrow(super_core_ids_sex), 
+                ") does not match N_super_core (", N_super_core, "). Check files.", sep=""))
+}
+
+
+# Load original full phenotype data (or the already subsetted one for 1196)
+# Using eye_color_updated.txt as the source of all phenotypes
+all_pheno_data <- read.table("eye_color_updated.txt", header = FALSE, 
+                             col.names = c("FID", "IID", "EYE_COLOR_SCORE"), 
+                             stringsAsFactors = FALSE)
+
+# Load NEW PCA eigenvector data for the super-core
+super_core_pca_data <- read.table(super_core_pca_eigenvec_file, header = FALSE, 
+                                  stringsAsFactors = FALSE)
+# Assign column names: FID, IID, PC1, PC2, ... up to number of PCs calculated (e.g., 15)
+num_pca_cols_calculated <- ncol(super_core_pca_data) - 2
+super_core_pc_names <- c("FID", "IID", paste0("PC", 1:num_pca_cols_calculated))
+colnames(super_core_pca_data) <- super_core_pc_names
+
+
+# --- 2. Create Subsetted Phenotype File for Super-Core ---
+# Merge original phenotypes with the FID/IID list from the super-core FAM file
+pheno_for_super_core_gwas <- merge(super_core_ids_sex[, c("FID", "IID")], # Use IDs from super_core_fam
+                                   all_pheno_data, 
+                                   by = c("FID", "IID"))
+# Select only FID, IID, EYE_COLOR_SCORE
+pheno_for_plink_super_core <- pheno_for_super_core_gwas[, c("FID", "IID", "EYE_COLOR_SCORE")]
+
+# Verify row count
+if(nrow(pheno_for_plink_super_core) != N_super_core) {
+  warning(paste("Phenotype file for super-core has", nrow(pheno_for_plink_super_core), "rows, expected", N_super_core))
+}
+
+write.table(pheno_for_plink_super_core, pheno_output_filename, 
+            row.names = FALSE, col.names = FALSE, quote = FALSE, sep = "\t")
+print(paste("Subsetted phenotype file '", pheno_output_filename, "' created with ", nrow(pheno_for_plink_super_core), " individuals.", sep=""))
+
+
+# --- 3. Create Combined Covariate File for Super-Core (PCs + Sex) ---
+# Subset PCA data for the super-core (already loaded as super_core_pca_data)
+# and select the top N_SUPER_CORE_PCS_TO_USE PCs
+pc_columns_to_select <- c("FID", "IID", paste0("PC", 1:N_SUPER_CORE_PCS_TO_USE))
+super_core_pcs_to_use <- super_core_pca_data[, pc_columns_to_select]
+
+# Prepare sex covariate from the super_core_fam data (0 for male, 1 for female)
+# Using super_core_ids_sex which already has FID, IID, SEX for the super-core
+super_core_sex_covariate <- super_core_ids_sex # This df has FID, IID, SEX for N_super_core
+super_core_sex_covariate$SEX_COV <- ifelse(super_core_ids_sex$SEX == 1, 0, # Male = 0
+                                          ifelse(super_core_ids_sex$SEX == 2, 1, NA)) # Female = 1, NA for others
+
+# Check for any NAs in sex covariate (from original sex code '0')
+num_na_sex <- sum(is.na(super_core_sex_covariate$SEX_COV))
+if(num_na_sex > 0) {
+  warning(paste(num_na_sex, "individuals in super-core have undefined sex (not 1 or 2) in FAM file and will get NA for SEX_COV."))
+}
+
+# Merge PCs and Sex Covariate for the super-core individuals
+# Both super_core_pcs_to_use and super_core_sex_covariate should be for the N_super_core individuals
+combined_covariates_super_core <- merge(super_core_pcs_to_use, 
+                                        super_core_sex_covariate[, c("FID", "IID", "SEX_COV")], 
+                                        by = c("FID", "IID"))
+
+# Filter out individuals with NA for SEX_COV (these are the ones PLINK will drop from analysis)
+# This ensures the covariate file fed to PLINK has no NAs in the covariate columns
+combined_covariates_super_core_filtered <- na.omit(combined_covariates_super_core) 
+
+# Select columns for PLINK: FID, IID, PC1-PC<N_SUPER_CORE_PCS_TO_USE>, SEX_COV
+covariate_cols_for_plink_output <- c("FID", "IID", paste0("PC", 1:N_SUPER_CORE_PCS_TO_USE), "SEX_COV")
+covariates_for_plink_super_core <- combined_covariates_super_core_filtered[, covariate_cols_for_plink_output]
+
+# Verify row count (should be N_super_core - number of individuals with undefined sex)
+num_in_final_covar_file <- nrow(covariates_for_plink_super_core)
+print(paste("Number of individuals in final covariate file:", num_in_final_covar_file))
+# Update the output filename to reflect the actual number of individuals if it's different from N_super_core - 2
+# For example, if N_super_core = 897 and 2 had NA sex, then num_in_final_covar_file = 895.
+# Let's make the filename reflect num_in_final_covar_file for accuracy.
+covar_output_filename_final <- paste0("gwas_super_core_covar_", N_SUPER_CORE_PCS_TO_USE, "pcs_sex_N", num_in_final_covar_file, ".txt")
+
+
+write.table(covariates_for_plink_super_core, covar_output_filename_final, 
+            row.names = FALSE, col.names = FALSE, quote = FALSE, sep = "\t")
+print(paste("Combined covariate file '", covar_output_filename_final, "' created with ", num_in_final_covar_file, " individuals.", sep=""))
+```
+

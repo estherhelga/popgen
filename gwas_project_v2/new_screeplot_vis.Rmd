@@ -7,7 +7,7 @@ output: html_document
 
 ```{r}
 
-eigenvalues_new <- read.table("gwas_1196_pca_30pcs.eigenval", header = FALSE)$V1
+eigenvalues_new <- read.table("gwas_core_1124_pca_20pcs.eigenval", header = FALSE)$V1
 variance_explained_new <- eigenvalues_new / sum(eigenvalues_new) * 100 #this gives us the porpotional variance in relation to the 30 PCs calculated and not the total
 pc_numbers_new <- 1:length(eigenvalues_new)
 scree_data_new <- data.frame(PC = pc_numbers_new, VarianceExplained = variance_explained_new)
@@ -20,4 +20,23 @@ ggplot(scree_data_new, aes(x = PC, y = VarianceExplained)) +
   scale_x_continuous(breaks = pc_numbers_new) + theme_minimal()
 
 ```
+
+```{r}
+
+eigenvalues_core <- read.table("gwas_core_1124_pca_20pcs.eigenval", header = FALSE)$V1
+variance_explained_core <- eigenvalues_core / sum(eigenvalues_core) * 100
+pc_numbers_core <- 1:length(eigenvalues_core)
+scree_data_core <- data.frame(PC = pc_numbers_core, VarianceExplained = variance_explained_core)
+
+library(ggplot2)
+ggplot(scree_data_core, aes(x = PC, y = VarianceExplained)) +
+  geom_bar(stat = "identity", fill = "darkgreen") +
+  labs(title = "Scree Plot for Core Subgroup (1124 Individuals, Up to 20 PCs)",
+       x = "Principal Component (Core Subgroup)", y = "Porportional Percentage of Variance Explained") +
+  scale_x_continuous(breaks = pc_numbers_core) + theme_minimal()
+
+
+```
+
+
 

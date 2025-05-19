@@ -1,0 +1,106 @@
+---
+title: "GWAS Results Visualization (Super-Core Subgroup)"
+author: "Esther Helga"
+date: "2024-05-20"
+output: html_document
+---
+
+```{r}
+library(qqman)
+library(dplyr)
+library(ggplot2) # For potential custom plots, though qqman is primary here
+library(scales)  # For axis formatting
+```
+```{r}
+# --- 1. Load GWAS Results for the Super-Core Subgroup ---
+# !! IMPORTANT: Update this filename to your actual output file !!
+# For example, if you used 6 PCs for the super-core:
+gwas_results_file_supercore <- "gwas_eyecolor_SUPERCORE_6pcs_sex.assoc.linear" 
+# Or if you used 4 PCs:
+# gwas_results_file_supercore <- "gwas_eyecolor_SUPERCORE_4pcs_sex.assoc.linear" 
+
+gwas_data_supercore <- read.table(gwas_results_file_supercore, header = TRUE, stringsAsFactors = FALSE)
+
+# Check the header and first few rows
+head(gwas_data_supercore)
+print(paste("Number of SNPs in results file:", nrow(gwas_data_supercore)))
+```
+```{r}
+# --- 2. Prepare Data for qqman ---
+# Ensure P-values are numeric and handle NAs
+gwas_data_supercore$P <- as.numeric(gwas_data_supercore$P)
+gwas_data_supercore_filtered <- gwas_data_supercore[!is.na(gwas_data_supercore$P), ]
+
+# Ensure CHR and BP are numeric
+gwas_data_supercore_filtered$CHR <- as.numeric(gwas_data_supercore_filtered$CHR)
+gwas_data_supercore_filtered$BP <- as.numeric(gwas_data_supercore_filtered$BP)
+
+# Check unique chromosome values - qqman handles numeric CHR well (1-22, 23=X, etc.)
+# print(unique(gwas_data_supercore_filtered$CHR)) 
+```
+
+```{r}
+# --- 3. Generate QQ Plot and Calculate Lambda for Super-Core Results ---
+
+# Calculate Lambda
+# Ensure P-values are not exactly 0 or 1 to avoid issues with qchisq, though PLINK usually gives very small numbers instead of 0.
+# Filter out P=0 or P=1 if they exist, as qchisq(1-0, df=1) is Inf and qchisq(1-1, df=1) is 0.
+p_values_for_lambda <- gwas_data_supercore_filtered$P[gwas_data_supercore_filtered$P > 0 & gwas_data_supercore_filtered$P < 1]
+if (length(p_values_for_lambda) < length(gwas_data_supercore_filtered$P)) {
+    print(paste("Note:", length(gwas_data_supercore_filtered$P) - length(p_values_for_lambda), 
+                "SNPs with P=0 or P=1 excluded from Lambda calculation."))
+}
+
+
+chisq_stats_supercore <- qchisq(1 - p_values_for_lambda, df = 1)
+lambda_supercore <- median(chisq_stats_supercore, na.rm = TRUE) / qchisq(0.5, df = 1)
+print(paste("Genomic Inflation Factor (Lambda) for Super-Core GWAS:", round(lambda_supercore, 4)))
+
+# Create QQ plot using qqman
+# Construct a dynamic title for the plot
+qq_plot_title_supercore <- paste0("QQ Plot of Eye Color GWAS P-values (Super-Core, Lambda = ", round(lambda_supercore, 3), ")")
+qq_plot_filename_supercore <- paste0("gwas_qqplot_supercore_lambda_", round(lambda_supercore, 3), ".png")
+
+png(qq_plot_filename_supercore, width = 7, height = 7, units = "in", res = 300)
+qq(gwas_data_supercore_filtered$P, 
+   main = qq_plot_title_supercore,
+   cex.main = 1.1, 
+   cex.axis = 1,   
+   cex.lab = 1,    
+   col = "darkblue", # Changed color slightly for distinction
+   las = 1 # Makes y-axis labels horizontal
+   )
+dev.off()
+print(paste("Super-core QQ plot saved as", qq_plot_filename_supercore))
+```
+```{r}
+# --- 4. Generate Manhattan Plot for Super-Core Results ---
+genome_wide_sig_line <- -log10(5e-8)
+suggestive_sig_line <- -log10(1e-5)
+
+# Determine y-axis limit to ensure all points are visible
+max_y_val_supercore <- max(-log10(gwas_data_supercore_filtered$P), na.rm = TRUE)
+y_limit_supercore <- if(is.finite(max_y_val_supercore)) { ceiling(max_y_val_supercore) + 1 } else { 50 } # Default if all P are NA or 1
+
+manhattan_plot_title_supercore <- "Manhattan Plot for Eye Color GWAS (Super-Core Subgroup)"
+manhattan_plot_filename_supercore <- paste0("gwas_manhattan_plot_supercore_lambda_", round(lambda_supercore, 3), ".png")
+
+png(manhattan_plot_filename_supercore, width = 14, height = 7, units = "in", res = 300)
+manhattan(gwas_data_supercore_filtered, 
+          main = manhattan_plot_title_supercore,
+          chr = "CHR", 
+          bp = "BP", 
+          snp = "SNP", 
+          p = "P",
+          col = c("dodgerblue4", "deepskyblue"), 
+          genomewideline = genome_wide_sig_line, 
+          suggestiveline = suggestive_sig_line,
+          highlight = NULL, 
+          cex.axis = 0.9,
+          logp = TRUE, # Ensures -log10 transformation if P column isn't already -log10(P)
+          ylim = c(0, y_limit_supercore)
+          ) 
+dev.off()
+print(paste("Super-core Manhattan plot saved as", manhattan_plot_filename_supercore))
+```
+

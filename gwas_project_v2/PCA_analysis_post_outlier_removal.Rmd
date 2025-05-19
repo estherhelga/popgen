@@ -13,7 +13,7 @@ library(dplyr)
 ```{r}
 
 # Load the .eigenvec file from PLINK (output from Step 9)
-pca_eigenvectors <- read.table("final_pca_results_no_outliers.eigenvec", header = FALSE, as.is = TRUE)
+pca_eigenvectors <- read.table("gwas_core_1124_pca_20pcs.eigenvec", header = FALSE, as.is = TRUE)
 num_pcs <- ncol(pca_eigenvectors) - 2 
 colnames(pca_eigenvectors) <- c("FID", "IID", paste0("PC", 1:num_pcs))
 pca_eigenvectors$FID <- as.character(pca_eigenvectors$FID)
@@ -24,7 +24,7 @@ N <- nrow(pca_eigenvectors)                       # number of individuals in you
 # It would be better to use: N <- nrow(pca_eigenvectors) 
 # This ensures N matches the actual number of samples used in the PCA calculation.
 
-pca_eigenvalues <- read.table("final_pca_results_no_outliers.eigenval", header = FALSE)
+pca_eigenvalues <- read.table("gwas_core_1124_pca_20pcs.eigenval", header = FALSE)
 colnames(pca_eigenvalues) <- "Eigenvalue"
 
 # Each eigenvalue is a variance component; the sum of *all* N eigenvalues equals N
@@ -32,7 +32,7 @@ total_var <- N                    # or nrow(eigenvec) if you prefer
 pca_eigenvalues$VarianceExplained <-
         pca_eigenvalues$Eigenvalue / total_var * 100
 
-pca_eigenvalues$PC_num <- seq_len(nrow(pca_eigenvalues))        # ← add this back
+pca_eigenvalues$PC_num <- seq_len(nrow(pca_eigenvalues))        # b add this back
 pca_eigenvalues$VarianceExplained <- (pca_eigenvalues$Eigenvalue / N )* 100
 
 

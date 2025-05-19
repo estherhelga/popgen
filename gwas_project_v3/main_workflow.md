@@ -1394,3 +1394,408 @@ plink --bfile final_analysis_cohort_hwe_filtered \
 
 Using our gwas_linear_result_visualizations.rmd we will visualize the QQ plot again and calculate our lambda
 
+
+# Restricting Analysis to a More Homogeneously Ancestral Subgroup
+
+*Purpose*
+Previous GWAS attempts on the full cohort of 1196 individuals, even with up to 20 Principal Components (PCs) as covariates, resulted in unacceptably high genomic inflation (Lambda ≈ 1.973) and a QQ plot shape indicating persistent, uncontrolled population stratification. This is likely due to the significant ancestral diversity within the openSNP cohort and the strong correlation between ancestry and eye color.
+
+To achieve better control of population stratification, the analysis will now be restricted to a more ancestrally homogeneous subgroup identified from the principal components. This approach aims to reduce the extent of confounding by focusing on a set of individuals who are genetically more similar.
+
+*Input Files for this Section*
+1.  **PCA Eigenvectors (for 1196 individuals, up to 30 PCs):** `pca_results_1196ind_30pcs.eigenvec`
+2.  **Phenotype Data (for 1196 individuals):** `gwas_pheno_1196.txt` (or your original `eye_color_updated.txt` which PLINK can subset)
+3.  **Fully QCed Genotype Data (for 1196 individuals, pre-GWAS):** `final_analysis_cohort_hwe_filtered.bed/bim/fam`
+
+*Methodology*
+
+**Step 1: Visualize Current PCA Results to Define the Core Subgroup (R)**
+
+The first step is to plot the principal components from `pca_results_1196ind_30pcs.eigenvec` to visually identify the main, dense cluster of individuals. We will also color by phenotype to confirm your earlier observation about the "arms."
+
+*Decision on Core Subgroup Definition*
+Based on visualizing the PCA plots (`pca_results_1196ind_30pcs.eigenvec`) and iteratively applying standard deviation (SD) based thresholds, a core subgroup was defined by selecting individuals within +/- 2.0 SD of the mean for both PC1 and PC2. This resulted in the selection of 1124 individuals. The list of these individuals (FID and IID) has been saved to `gwas_core_cluster_sd_individuals_to_keep.txt`. Seventy-one (71) individuals were excluded by this criterion.
+
+*Next Steps: Prepare Core Subgroup for GWAS*
+The following steps will create a new dataset for these 1124 individuals and re-calculate Principal Components specifically for this subgroup to be used as covariates.
+
+**Input Files for this Stage:**
+1.  **Fully QCed Genotype Data (for 1196 individuals, pre-GWAS):** `final_analysis_cohort_hwe_filtered.bed/bim/fam`
+2.  **List of Core Individuals to Keep:** `gwas_core_cluster_sd_individuals_to_keep.txt` (contains FIDs/IIDs for 1124 individuals)
+3.  **List of High-LD Regions:** `high_ld_regions_exclude.txt`
+4.  **Phenotype Data (Subsetted for 1196, or original):** `gwas_pheno_1196.txt` (or `eye_color_updated.txt`)
+5.  **FAM file for Sex (for 1196):** `final_analysis_cohort_hwe_filtered.fam`
+
+**Step 2: Create New PLINK Dataset for the Core Subgroup (1124 Individuals)**
+
+plink --bfile final_analysis_cohort_hwe_filtered \
+      --keep gwas_core_cluster_sd_individuals_to_keep.txt \
+      --make-bed \
+      --out gwas_core_1124
+
+**step 3: LD Pruning for PCA on the Core Subgroup**
+
+3a. Exclude known high-LD regions from the core subgroup dataset
+
+plink --bfile gwas_core_1124 \
+      --exclude range high_ld_regions_exclude.txt \
+      --make-bed \
+      --out gwas_core_1124_ldregions_excluded
+
+3b. Perform window-based LD pruning on the core subgroup dataset
+
+plink --bfile gwas_core_1124_ldregions_excluded \
+      --indep-pairwise 50 5 0.2 \
+      --out gwas_core_1124_pruning_results
+
+plink --bfile gwas_core_1124_ldregions_excluded \
+      --extract gwas_core_1124_pruning_results.prune.in \
+      --make-bed \
+      --out gwas_core_1124_ld_pruned_for_pca
+
+Output: gwas_core_1124_ld_pruned_for_pca.bed/bim/fam. This is the input for the new PCA.
+Action: Note the number of SNPs remaining after pruning for this core subgroup.
+
+**Step 4: Calculate New Principal Components for the Core Subgroup**
+
+plink --bfile gwas_core_1124_ld_pruned_for_pca \
+      --pca 20 \
+      --out gwas_core_1124_pca_20pcs
+
+Outputs: gwas_core_1124_pca_20pcs.eigenvec and gwas_core_1124_pca_20pcs.eigenval.
+These are the NEW PCs that will be used as covariates for the GWAS on the core subgroup.
+
+**Step 5: Create Scree Plot for the New Core Subgroup PCs**
+
+Using the screeplot R script, we identified the first 6 PCs to be used in later steps.
+
+**Step 6: Prepare Final Phenotype and Covariate Files for the Core Subgroup GWAS**
+
+Using the covariate_file_creation R script, we created a new .txt file containing the individuals we are moving on with. Again, two of them still have missing sex so they are removed. The txt file is: gwas_covariates_6pcs_sex_1124.txt
+
+**Step 7: Run GWAS on the Core Subgroup**
+
+plink --bfile gwas_core_1124 \
+      --pheno gwas_pheno_1196.txt \
+      --covar gwas_covariates_6pcs_sex_1124.txt \
+      --linear \
+      --allow-no-sex \
+      --out gwas_eyecolor_CORE_SUBGROUP_6pcs_sex
+
+
+**Step 8: Evaluate Lambda and QQ Plot for the Core Subgroup GWAS**
+
+Lambda is down to 1.859, but the shapw of the QQ plot persists. The hit on the Manhattan plot is still just one peak on chromsome 15, most likely the HERC2/OCA2 variants.
+
+
+
+# Plan A: Go with the results we have now from the 6 and 20 PC's QQ and Man. 
+
+Okay, thank you for sharing the 20 PC QQ plot (Lambda = 1.973).
+You are absolutely right in your assessment:
+The lambda has improved (down from 6.6 with 7 PCs on this same core, and from 9.7 initially).
+However, the shape of the QQ plot is still fundamentally problematic. That early, strong deviation and the "shelf/step-ladder" pattern persist. The "little more hugging in the beginning" is a very minor improvement in the face of the overall distortion.
+Your observation "It seems there are just a few outliers that completely ruin the plot right?" is insightful regarding the tail of the distribution (the extremely significant SNPs, likely HERC2/OCA2). But the problem is actually genome-wide: the entire distribution of p-values is shifted upwards from the null line long before you get to that extreme tail. The "shelves" indicate that large numbers of SNPs are more significant than they should be.
+Is it realistic to control this population stratification in this current 1124-person "core" subgroup with only PCs and a simple linear model?
+At this point, with lambda still ~2.0 and that QQ plot shape after 20 PCs, it's becoming highly unlikely that simply adding more PCs (e.g., 25 or 30) to this specific 1124-person subgroup will magically fix the QQ plot to an ideal state (lambda ~1.0, clean diagonal). The confounding is too strong and too structured.
+You are right: you've iterated, and the standard PC approach on this particular "core" subset isn't fully resolving the deep-seated stratification issues for a trait as ancestrally patterned as eye color in a diverse public dataset.
+"We need results NOW." - Understood.
+Given the time constraints and the need for interpretable results for your project, continuing to chase perfect stratification control in this current 1124-person "core" with more PCs might be a frustrating exercise with diminishing returns.
+The Most Pragmatic Path to "Results NOW" that are as interpretable as possible given the data's nature:
+We need to accept that perfect control might be very hard with this dataset and model, but we still want to present the most reasonable analysis. Your primary goal for the project is likely to demonstrate the GWAS process, identify major signals, and discuss limitations.
+Strategy: Focus on the Clearest Known Biology and Acknowledge Limitations
+The HERC2/OCA2 region on Chromosome 15 is the undeniable major player in eye color variation, especially blue vs. brown. Your Manhattan plot (even the one from the 6 PC run) clearly shows this. This is a true biological signal, even if its p-value is currently inflated.
+What to do for your report (balancing rigor with project deadlines):
+Since Path B (More Stringent Definition of the "Core" Subgroup) is the most methodologically sound next step to try and improve lambda/QQ plot if you had infinite time, but you need results now:
+Option A: Proceed with current best results (20 PCs on 1124 core) and HEAVILY CAVEAT.
+This is risky because a lambda of ~2 is generally not publishable and indicates unreliable p-values genome-wide. However, if you are forced to produce some result from the current state:
+Use the results from your GWAS on the gwas_core_1124 individuals with 20 PCs + Sex (Lambda = 1.973).
+Output file: gwas_eyecolor_CORE_SUBGROUP_20pcs_sex.assoc.linear (or similar based on your naming).
+In your report:
+Show the QQ plot (Lambda = 1.973).
+Explicitly state that there is significant residual genomic inflation (Lambda = 1.973), indicating that population stratification is not fully controlled even with 20 PCs in this subgroup. This is a critical acknowledgement.
+Show the Manhattan plot. State that due to the inflation, p-values genome-wide are likely anti-conservative.
+Focus your "findings" almost exclusively on the Chromosome 15 peak (HERC2/OCA2).
+Report the top SNP(s) in this region.
+State that this is a well-known major locus for eye color, and your GWAS successfully identifies it.
+Acknowledge that the p-value for this peak is likely inflated but the signal itself is consistent with known biology.
+Do NOT over-interpret other "suggestive" peaks across the genome. With this lambda, they are highly likely to be false positives.
+In your Discussion/Conclusion: Discuss the challenges of controlling for population stratification in diverse cohorts like openSNP, especially for traits like eye color. Mention that further refinement of the cohort (e.g., even stricter ancestral homogeneity) or more advanced models (like mixed models) would be needed for a more robust analysis.
+
+
+# Plan B: Implement a Quick Version of "More Stringent Core" (If you have a few hours)
+
+This has a chance of improving lambda/QQ plot enough to be more presentable.
+Define a "Super-Core":
+Go back to your R script for defining the core using new_pca_results_1196ind_30pcs.eigenvec.
+Use a stricter SD_MULTIPLIER. Try SD_MULTIPLIER = 1.5 first. WENT TO 0.5
+This will give you a smaller list of individuals: gwas_super_core_individuals_to_keep.txt. Note the new N (e.g., N_super_core). Let's say it's ~800-900.
+Create the Super-Core PLINK Dataset:
+plink --bfile final_analysis_cohort_hwe_filtered \
+      --keep gwas_super_core_sd0.5_individuals_to_keep.txt \
+      --make-bed \
+      --out gwas_super_core_N${N_super_core}
+
+Re-run MAF and HWE on this Super-Core:
+plink --bfile gwas_super_core_N${N_super_core} --maf 0.01 --make-bed --out gwas_super_core_N${N_super_core}_maf
+plink --bfile gwas_super_core_N${N_super_core}_maf --hwe 1e-6 --make-bed --out gwas_super_core_N${N_super_core}_finalqc
+
+Re-run PCA on this Super-Core LD-pruned data (calculate e.g., 10-15 PCs):
+First LD prune gwas_super_core_N${N_super_core}_finalqc (exclude regions, then --indep-pairwise). Let the output be gwas_super_core_N${N_super_core}_ld_pruned_for_pca.
+
+plink --bfile gwas_super_core_N${N_SUPER_CORE_VAR}_finalqc \
+      --exclude range high_ld_regions_exclude.txt \
+      --make-bed \
+      --out gwas_super_core_N${N_SUPER_CORE_VAR}_finalqc_ldregions
+
+plink --bfile gwas_super_core_N${N_SUPER_CORE_VAR}_finalqc_ldregions \
+      --indep-pairwise 50 5 0.2 \
+      --out gwas_super_core_N${N_SUPER_CORE_VAR}_pruning_results
+
+plink --bfile gwas_super_core_N${N_SUPER_CORE_VAR}_finalqc_ldregions \
+      --extract gwas_super_core_N${N_SUPER_CORE_VAR}_pruning_results.prune.in \
+      --make-bed \
+      --out gwas_super_core_N${N_SUPER_CORE_VAR}_ld_pruned_for_pca
+
+Then PCA:
+plink --bfile gwas_super_core_N${N_super_core}_ld_pruned_for_pca \
+      --pca 15 \
+      --out gwas_super_core_N${N_super_core}_pca_15pcs
+
+Prepare Covariates: Use R to make a covariate file with a small number of these new super-core PCs (e.g., top 4-6 PCs from gwas_super_core_N${N_super_core}_pca_15pcs.eigenvec) + Sex.
+
+Run "r_script_of_death.rmd".
+
+Ensure N_SUPER_CORE_VAR matches N_super_core used in R
+Ensure N_SUPER_CORE_PCS_FILENAME matches N_SUPER_CORE_PCS_TO_USE in R
+Ensure N_SUPER_CORE_ANALYZED_FILENAME matches num_in_final_covar_file from R output
+
+N_SUPER_CORE_VAR=1048 # Example
+N_SUPER_CORE_PCS_FILENAME=6 # Example
+N_SUPER_CORE_ANALYZED_FILENAME=1046 # Example (897 - 2 with NA sex)
+
+plink --bfile gwas_super_core_N${N_SUPER_CORE_VAR}_finalqc \
+      --pheno gwas_super_core_pheno_N${N_SUPER_CORE_VAR}.txt \
+      --covar gwas_super_core_covar_${N_SUPER_CORE_PCS_FILENAME}pcs_sex_N${N_SUPER_CORE_ANALYZED_FILENAME}.txt \
+      --linear \
+      --allow-no-sex \
+      --out gwas_eyecolor_SUPERCORE_${N_SUPER_CORE_PCS_FILENAME}pcs_sex
+
+Run GWAS on Super-Core:
+plink --bfile gwas_super_core_N${N_super_core}_finalqc \
+      --pheno gwas_super_core_pheno_N${N_super_core}.txt \
+      --covar gwas_super_core_covar_pcs_sex_N.txt \
+      --linear \
+      --allow-no-sex \
+      --out gwas_eyecolor_SUPERCORE_FewPCs_sex
+
+Check Lambda and QQ plot. (r_script_of_death_vis.rmd)
+If lambda is now much better (e.g., < 1.2) and QQ plot is cleaner: This is your best result to report!
+
+
+If still problematic: Then you've done due diligence, and you'll have to report results like in Option A, but mention you also tried this more stringent subsetting.
+Regarding Removing the "Winner Takes It All" SNPs (Chromosome 15 peak):
+Do NOT do this as a primary analysis strategy to "fix" your QQ plot or lambda.
+Removing true strong signals because they are "too strong" is not how you control for genome-wide inflation caused by stratification.
+This technique (conditional analysis or excluding a region) is an exploratory tool used after you have a well-controlled GWAS to see if secondary, independent signals exist.
+If you remove the Chr15 peak now, your lambda calculated on the remaining SNPs will still be inflated if the underlying stratification problem isn't solved, and you won't be able to trust other emerging peaks.
+Decision and Exact Steps "NOW":
+Given the need for results and the QQ plot shape:
+I strongly recommend attempting a quick version of Path B (Option B above: More Stringent "Super-Core").
+Exact Steps for "Super-Core" Approach:
+Decide on SD_MULTIPLIER for Super-Core:
+In your R script that uses new_pca_results_1196ind_30pcs.eigenvec, set SD_MULTIPLIER = 1.5.
+Run it to see how many individuals are kept. If it's too few (e.g., < 600-700), try SD_MULTIPLIER = 1.75. Aim for a balance.
+Once you have a multiplier that gives you a "super-core" of, say, N=700-900 individuals, save the list as gwas_super_core_individuals_to_keep.txt. Let's say N_super_core is this new number.
+Create Super-Core PLINK Dataset:
+plink --bfile final_analysis_cohort_hwe_filtered \
+      --keep gwas_super_core_individuals_to_keep.txt \
+      --make-bed \
+      --out gwas_super_core_N${N_super_core}
+Use code with caution.
+Bash
+(Replace ${N_super_core} with the actual number)
+MAF Filter for Super-Core:
+plink --bfile gwas_super_core_N${N_super_core} \
+      --maf 0.01 \
+      --make-bed \
+      --out gwas_super_core_N${N_super_core}_maf
+Use code with caution.
+Bash
+HWE Filter for Super-Core:
+plink --bfile gwas_super_core_N${N_super_core}_maf \
+      --hwe 1e-6 \
+      --make-bed \
+      --out gwas_super_core_N${N_super_core}_finalqc
+Use code with caution.
+Bash
+(This gwas_super_core_N${N_super_core}_finalqc is your genotype file for the super-core GWAS)
+LD Pruning for Super-Core PCA:
+plink --bfile gwas_super_core_N${N_super_core}_finalqc \
+      --exclude range high_ld_regions_exclude.txt \
+      --make-bed \
+      --out gwas_super_core_N${N_super_core}_finalqc_ldregions
+
+plink --bfile gwas_super_core_N${N_super_core}_finalqc_ldregions \
+      --indep-pairwise 50 5 0.2 \
+      --out gwas_super_core_N${N_super_core}_pruning_results
+
+plink --bfile gwas_super_core_N${N_super_core}_finalqc_ldregions \
+      --extract gwas_super_core_N${N_super_core}_pruning_results.prune.in \
+      --make-bed \
+      --out gwas_super_core_N${N_super_core}_ld_pruned_for_pca
+Use code with caution.
+Bash
+PCA on Super-Core (Calculate 10-15 PCs):
+plink --bfile gwas_super_core_N${N_super_core}_ld_pruned_for_pca \
+      --pca 15 \
+      --out gwas_super_core_N${N_super_core}_pca_15pcs
+Use code with caution.
+Bash
+Prepare Phenotype and Covariate Files for Super-Core GWAS (R):
+Create gwas_super_core_pheno_N${N_super_core}.txt by subsetting eye_color_updated.txt for the N_super_core individuals.
+Create gwas_super_core_covar_Xpcs_sex.txt using a small number of the new PCs from gwas_super_core_N${N_super_core}_pca_15pcs.eigenvec (e.g., top 4-6 PCs based on its scree plot) + Sex. Remember this will likely be for N_super_core - 2 individuals if 2 still have undefined sex. Let N_super_core_analyzed = N_super_core - 2.
+Run GWAS on Super-Core:
+ Example using 4 new PCs from super-core PCA
+plink --bfile gwas_super_core_N${N_super_core}_finalqc \
+      --pheno gwas_super_core_pheno_N${N_super_core}.txt \
+      --covar gwas_super_core_covar_4pcs_sex_N${N_super_core_analyzed}.txt \
+      --linear \
+      --allow-no-sex \
+      --out gwas_eyecolor_SUPERCORE_4pcs_sex
+Use code with caution.
+Bash
+CRITICALLY EVALUATE Lambda and QQ Plot for this gwas_eyecolor_SUPERCORE_4pcs_sex.assoc.linear result.
+This "super-core" approach is your most promising bet for getting a reasonably well-controlled result quickly. If this still results in a very bad lambda/QQ plot, then the dataset has fundamental challenges for a simple linear model GWAS of eye color that might require even more advanced techniques or different study designs not feasible for this project. But let's try this path first.
+If the "super-core" GWAS results in a lambda around 1.0-1.1 and a much cleaner QQ plot, then THOSE are the results you should focus on for your report. You would then explain the steps taken to arrive at this more homogeneous subgroup.
+
+# Conclusion of GWAS of Eye Color: Results and Interpretation
+
+**Objective:** To identify genetic variants associated with a 4-category self-reported eye color phenotype (Blue, Green/Blue-Green, Hazel, Brown, scored 0-3) in a diverse cohort from openSNP, while controlling for population stratification.
+
+**Summary of Quality Control and Cohort Definition:**
+The initial dataset comprised [Original N from gwas_data.fam] individuals. A rigorous quality control (QC) pipeline was implemented. Key steps included:
+1.  **Phenotype Harmonization:** Self-reported eye colors were mapped to a 4-category ordered scale (0=Blue, 1=Green/Blue-Green, 2=Hazel, 3=Brown).
+2.  **Per-Chip QC:** Individuals were grouped by genotyping chip platform. SNPs with high missingness (>5-20%) or low call rates per individual (>2-5%) were filtered *within each chip group* before merging. The problematic OmniExpress chip data was excluded entirely from the merge.
+3.  **Merged Cohort QC:**
+    *   Individuals without phenotype data were removed.
+    *   Heterozygous haploid genotypes were set to missing.
+    *   Sex check was performed, and individuals with ambiguous genetic sex (F-statistic between 0.2-0.8 or NaN for non-OmniExpress chips) were removed. This resulted in a cohort of 1433 individuals.
+4.  **Initial PCA-based Outlier Removal:** Principal Component Analysis (PCA) was performed on an LD-pruned subset of the 1433 individuals. Individuals falling beyond +/- 6 standard deviations on PC1 or PC2 were removed as ancestral outliers, leading to a cohort of 1412 individuals.
+5.  **Relatedness Filtering:** Identity-by-Descent (IBD) was estimated. A greedy algorithm removed 216 individuals to ensure no pairs remained with PI_HAT > 0.1875, resulting in an analysis cohort of 1196 unrelated individuals.
+6.  **SNP QC:** SNPs were filtered based on Minor Allele Frequency (MAF < 0.01) and deviation from Hardy-Weinberg Equilibrium (HWE p < 1e-6) within this 1196-person cohort. This resulted in a final set of 949,579 SNPs for association testing.
+
+**Addressing Population Stratification for GWAS:**
+Initial GWAS attempts on the 1196-person cohort, using a linear regression model with the 4-category eye color score as the outcome and correcting with an increasing number of Principal Components (PCs, up to 10 derived from this set) plus sex, revealed significant genomic inflation (initial Lambda ≈ 9.7, improving to Lambda ≈ 2.8 with 10 PCs, but with a persistently poor QQ plot shape). This indicated that substantial population stratification, strongly correlated with the eye color phenotype, was not adequately controlled.
+
+To mitigate this, a more stringent approach was adopted:
+1.  **Definition of a "Super-Core" Subgroup:** Based on the PCA of the 1196 individuals (using `new_pca_results_1196ind_30pcs.eigenvec`), individuals falling within +/- 2.0 standard deviations of the mean for both PC1 and PC2 were selected. This defined a more ancestrally homogeneous "super-core" subgroup of 1124 individuals.
+2.  **Re-QC of Super-Core:** This super-core subgroup underwent MAF (>0.01) and HWE (p>1e-6) filtering.
+3.  **New PCA for Super-Core:** PCs were re-calculated *specifically for this super-core subgroup* using an LD-pruned subset of its SNPs. A scree plot of these new PCs (up to 15 calculated) indicated that the first ~6 PCs captured the most significant remaining variance (see Figure X - your super-core scree plot).
+4.  **Final GWAS Model on Super-Core:** A linear regression was performed on the 1124 super-core individuals (effective N=1122 after excluding 2 individuals with undefined sex for the sex covariate). The model included the top **6 PCs derived from the super-core subgroup** and sex as covariates.
+
+**Results from GWAS on the "Super-Core" Subgroup (N=1122, 6 PCs + Sex):**
+
+*   **Genomic Inflation Factor (Lambda):** The lambda value for this analysis was **1.859** (see QQ Plot, Figure Y).
+    *   *Interpretation:* While this is a substantial improvement from the initial lambda of ~9.7 and the lambda of ~2.8 on the larger "core" group, a lambda of 1.859 still indicates considerable residual genomic inflation. This suggests that even within this more stringently defined super-core, population stratification highly correlated with eye color remains a significant challenge to fully control with the current approach. P-values across the genome are likely to be anti-conservative (i.e., too small).
+
+*   **QQ Plot (Figure Y - your super-core QQ plot):**
+    *   The QQ plot shows a significant early and sustained deviation of observed p-values from the expected null distribution (the red diagonal line). The "shelf" or "step-ladder" pattern, though perhaps slightly less pronounced than in initial analyses, is still evident.
+    *   This visual evidence corroborates the high lambda value and confirms that systematic inflation of test statistics persists. The tail of the distribution, representing the most significant SNPs, deviates sharply upwards, as expected if true strong signals are present, but the body of the distribution is also inflated.
+
+*   **Manhattan Plot (Figure Z - your super-core Manhattan plot):**
+    *   The Manhattan plot displays association results across all autosomes (and numerically coded X, Y, MT if included).
+    *   A single, overwhelmingly significant peak of association is observed on **Chromosome 15**. The top SNPs in this region achieve extremely high -log10(P) values (e.g., >150-200). This peak corresponds to the well-known HERC2/OCA2 locus, a major genetic determinant of human eye color, particularly blue versus brown eyes.
+    *   The "background" or "lawn" of SNPs across other chromosomes appears elevated, consistent with the observed genomic inflation (lambda = 1.859). Many SNPs may cross suggestive or even genome-wide significance thresholds due to this inflation rather than true association.
+    *   No other distinct, major peaks comparable to the Chromosome 15 signal are clearly evident above the inflated background across the rest of the genome from this analysis.
+
+**Top Locus (Chromosome 15 - HERC2/OCA2):**
+The strongest signals of association were found in the HERC2/OCA2 region on Chromosome 15. For example, the SNP [Insert rsID of your top SNP here, e.g., rs12913832 if it's a top hit] showed a P-value of [Insert P-value] and a BETA coefficient of [Insert BETA].
+    *   *Interpretation:* This finding strongly replicates the most significant known genetic association with human eye color. The HERC2 enhancer region regulates OCA2 gene expression, which is critical for melanin production in the iris. Variants in this region are major determinants of the blue/brown eye color spectrum. While the p-value from this analysis is likely inflated, the identification of this locus is a robust biological finding.
+
+**Discussion of Results and Limitations:**
+
+This GWAS successfully identified the primary genetic locus (HERC2/OCA2 on Chromosome 15) known to be associated with eye color. However, the analysis was significantly challenged by population stratification inherent in the diverse openSNP cohort.
+
+*   **Persistent Genomic Inflation:** Despite rigorous QC steps, including multiple iterations of PCA-based outlier removal, subsetting to a more ancestrally homogeneous "super-core" subgroup (N=1122), and using up to 6 PCs (derived from this super-core) plus sex as covariates, a substantial genomic inflation factor (Lambda = 1.859) remained. This indicates that the p-values generated are anti-conservative, and associations outside of extremely well-established loci (like HERC2/OCA2) must be interpreted with extreme caution, as they are likely false positives.
+
+*   **Challenges of Stratification Control:** The strong correlation between genetic ancestry and eye color makes this trait particularly susceptible to confounding by population structure. The "super-core" definition, while aiming for homogeneity, may still contain residual fine-scale structure that the PCs do not fully capture, or the relationship between this structure and eye color may not be perfectly linear. The observation that distinct "arms" in the initial PCA plots (largely excluded from the super-core) predominantly comprised individuals with brown/hazel eyes highlights the strength of this phenotype-ancestry correlation.
+
+*   **Model Choice (Linear Regression):** A linear regression model was used, treating the 4-category eye color score as quantitative. While a simplification, this model was sufficient to detect the major HERC2/OCA2 signal. However, this model assumes equal intervals between eye color categories, which may not be biologically accurate and could reduce power or precision for other loci. An ordinal logistic regression model might be statistically more appropriate but was not pursued due to the primary challenge of stratification. It is unlikely that the choice of linear model is the main driver of the observed genome-wide inflation.
+
+*   **Interpretation of Findings:** Given the residual inflation, the primary robust finding from this GWAS is the strong association at the HERC2/OCA2 locus. Other SNPs appearing "significant" on the Manhattan plot are highly likely to be artifacts of the remaining stratification and should not be considered novel findings without further validation in a perfectly controlled study.
+
+**Conclusion of GWAS Component:**
+This GWAS project successfully demonstrated the key steps of data QC, association testing, and results interpretation. It highlighted the critical importance and significant challenge of controlling for population stratification in genetically diverse cohorts, especially for traits like eye color that are strongly differentiated across ancestries. While the major known locus for eye color (HERC2/OCA2) was robustly identified, persistent genomic inflation indicates that the current analysis is not sufficiently controlled for confident discovery of novel, weaker associations. Further methodological refinements, such as applying linear mixed models (LMMs) or even more stringent cohort definition based on specific ancestral populations (if such data were available), would be necessary to achieve optimal control and explore the genetic architecture of eye color more comprehensively in this dataset.
+
+The experience underscores the iterative nature of GWAS and the necessity of careful diagnostic checks (like QQ plots and lambda calculation) to ensure the validity of findings.
+
+# Additional Analysis D.1: Phenotype Distribution by Genotype at Top SNP
+
+*Purpose*
+To visually examine the relationship between the genotypes of the most significant SNP (identified in the "super-core" GWAS) and the distribution of the 4-category eye color phenotype. This provides a direct look at the SNP's effect and can offer insights into the genotype-phenotype relationship.
+
+*Methodology*
+
+**Step 1: Identify the Most Significant SNP**
+From your best GWAS results on the "super-core" subgroup (e.g., from `gwas_eyecolor_CORE_SUBGROUP_6pcs_sex.assoc.linear` which gave Lambda = 1.859), identify the SNP with the smallest p-value. This is likely on Chromosome 15 in the HERC2/OCA2 region.
+*   *Action: Note down the rsID of this SNP (e.g., `rs12913832` is a common candidate).* Let's call it `TOP_GWAS_SNP_ID`.
+
+Using R, we can filter by p value. 
+	
+CHR SNP         BP          A1  TEST    NMISS   BETA    STAT    P
+15  rs12913832  28365618    A   ADD     1121    1.3650  38.67   5.261e-208
+
+
+**Step 2: Extract Genotypes for the Top SNP and Phenotypes (PLINK + R)**
+
+You need a file containing the FID, IID, phenotype score, and the genotype (0, 1, or 2 copies of the minor/effect allele) for `TOP_GWAS_SNP_ID` for your super-core individuals.
+
+1.  **Create a list file for PLINK containing just the top SNP:**
+ 
+    # In your terminal
+    # Replace rsXXXXXX with your actual TOP_GWAS_SNP_ID
+    echo "rs12913832" > top_snp_for_recode.txt 
+  
+
+2.  **Use PLINK to recode genotypes for this SNP into an additive format (0, 1, 2) and output to a text file:**
+    The input bfile should be your final QCed super-core dataset.
+   
+    # Replace ${N_super_core} with the actual number (e.g., 897)
+    # Replace rsXXXXXX with your actual TOP_GWAS_SNP_ID
+    GWAS_INPUT_BFILE_BASENAME="gwas_core_1124"
+    TOP_SNP_ID_VAR="rs12913832" 
+
+plink --bfile gwas_core_1124 \
+      --snp rs12913832 \
+      --recode A \
+      --out top_snp_genotypes_for_supercore_analysis
+    ```
+    *   `--snp rs12913832`: Tells PLINK to focus on this specific SNP.
+    *   `--recode A`: Outputs a `.raw` file where genotypes are coded as counts of one allele (usually the minor allele as A1 in your .bim file). This file will contain FID, IID, PaternalID, MaternalID, Sex, Phenotype (from .fam, can be ignored), and then a column named `rsXXXXXX_A` (or similar, where A is the counted allele). The values will be 0, 1, 2, or NA (missing).
+    *   This creates `top_snp_genotypes_supercore.raw`.
+
+3.  **Prepare Data in R:**
+    Load the `.raw` file and merge it with your phenotype file for the super-core individuals.
+
+
+**Step 3: Interpretation**
+
+Biological Background for rs12913832 (HERC2/OCA2 region):
+rs12913832 G allele: This is the ancestral allele and is strongly associated with brown eyes. It's linked to higher melanin production.
+rs12913832 A allele: This is the derived allele and is strongly associated with blue eyes (and generally lighter eye/hair/skin pigmentation). It's linked to reduced melanin production due to its effect on OCA2 expression.
+
+*   Examine the bar plot (`pheno_dist_plot`). Does it show a clear trend? For a typical HERC2/OCA2 SNP where the minor allele is associated with lighter eyes (e.g., 'A' allele in rs12913832 is linked to blue eyes):
+ *  Genotype 0 (Count of 'A' = 0): This means the genotype is GG. These individuals should predominantly have darker eyes (Brown/Hazel).
+ *  Genotype 1 (Count of 'A' = 1): This means the genotype is GA. These individuals should have intermediate eye colors or a mix, often Hazel/Green, some Brown, some Blue/Green.    The effect is somewhat co-dominant/additive.
+ *  Genotype 2 (Count of 'A' = 2): This means the genotype is AA. These individuals should predominantly have lighter eyes (Blue, Blue/Green, potentially Green).
+*   The boxplot (`pheno_box_plot`) will show if the mean/median of your 0-3 eye color score changes across the genotype groups.
+*   **In your report:** Present one of these plots. Describe the observed pattern and how it aligns (or doesn't) with the SNP's known role or the GWAS finding. Discuss if the effect appears additive.
+
+This analysis is relatively quick, directly uses your data, provides visual insight into your top hit, and fulfills one of the Section D requirements effectively.
+
+If you want to do the conditional analysis instead/additionally, let me know, and I can detail those steps. But the phenotype distribution plot is a very good, straightforward choice.
+
+**Esther comments**
+
+When looking at the .raw data in R, we see the opposite distribution compared to the known biology of HERC2/OCA2. After chekcing if our data was correctly being read and genotypes counted correctly, which they were, it seems that the problem lays elsewhere. A common cause for this is what is called a Strand Flip. 

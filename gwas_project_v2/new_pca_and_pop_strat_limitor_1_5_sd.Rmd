@@ -1,0 +1,190 @@
+---
+title: "Define Super-Core Subgroup by SD Threshold"
+author: "Esther Helga"
+date: "2024-05-20" # Updated date
+output: html_document
+---
+
+```{r}
+
+library(ggplot2)
+library(dplyr)
+
+```
+
+```{r}
+
+# --- Load Data ---
+# Load PCA eigenvector data (up to 30 PCs for 1196 individuals)
+pca_file <- "gwas_1196_pca_30pcs.eigenvec" # This is your NEW PCA file for the 1196 individuals
+pca_data <- read.table(pca_file, header = FALSE, stringsAsFactors = FALSE)
+# Assign column names: FID, IID, PC1, PC2, ... (up to number of PCs calculated)
+pc_cols <- ncol(pca_data) - 2
+pc_names <- c("FID", "IID", paste0("PC", 1:pc_cols))
+colnames(pca_data) <- pc_names
+
+# Load phenotype data for coloring (ensure it's for the 1196 individuals)
+pheno_data_1196 <- read.table("gwas_pheno_1196.txt", header = FALSE, 
+                              col.names = c("FID", "IID", "EYE_COLOR_SCORE"), 
+                              stringsAsFactors = FALSE)
+
+# Merge PCA data with phenotype data
+pca_pheno_merged <- merge(pca_data, pheno_data_1196, by = c("FID", "IID"))
+
+# Convert EYE_COLOR_SCORE to a factor for discrete coloring
+pca_pheno_merged$EYE_COLOR_FACTOR <- factor(pca_pheno_merged$EYE_COLOR_SCORE, 
+                                            levels = 0:3, 
+                                            labels = c("0:Blue", "1:Green/BG", "2:Hazel", "3:Brown"))
+
+```
+
+
+```{r}
+
+# --- Plot PC1 vs PC2, Colored by Eye Color Phenotype (Optional - for initial visualization) ---
+p_pc1_pc2_pheno <- ggplot(pca_pheno_merged, aes(x = PC1, y = PC2, color = EYE_COLOR_FACTOR)) +
+  geom_point(alpha = 0.7, size = 1.5) +
+  labs(title = "PCA of 1196 Individuals (PC1 vs PC2)",
+       subtitle = "Colored by 4-Category Eye Color Phenotype",
+       x = "Principal Component 1",
+       y = "Principal Component 2",
+       color = "Eye Color") +
+  theme_minimal() +
+  guides(color = guide_legend(override.aes = list(size=3))) 
+# print(p_pc1_pc2_pheno) # You can uncomment to view this again if needed
+# ggsave("pca_1196ind_pc1_pc2_by_pheno_from_supercore_script.png", plot = p_pc1_pc2_pheno, width = 8, height = 6, dpi = 300)
+
+# --- Plot PC1 vs PC3, Colored by Eye Color Phenotype (Optional - for initial visualization) ---
+p_pc1_pc3_pheno <- ggplot(pca_pheno_merged, aes(x = PC1, y = PC3, color = EYE_COLOR_FACTOR)) +
+  geom_point(alpha = 0.7, size = 1.5) +
+  labs(title = "PCA of 1196 Individuals (PC1 vs PC3)",
+       subtitle = "Colored by 4-Category Eye Color Phenotype",
+       x = "Principal Component 1",
+       y = "Principal Component 3",
+       color = "Eye Color") +
+  theme_minimal() +
+  guides(color = guide_legend(override.aes = list(size=3)))
+print(p_pc1_pc3_pheno) # You can uncomment to view this again if needed
+# ggsave("pca_1196ind_pc1_pc3_by_pheno_from_supercore_script.png", plot = p_pc1_pc3_pheno, width = 8, height = 6, dpi = 300)
+
+```
+
+
+```{r}
+
+# --- Define SD Multiplier and Calculate Thresholds ---
+SD_MULTIPLIER <- 0.5 # Set to the desired tighter SD threshold
+
+# Calculate mean and SD for PC1 and PC2 (based on all 1196 individuals in pca_pheno_merged)
+mean_pc1 <- mean(pca_pheno_merged$PC1, na.rm = TRUE)
+sd_pc1 <- sd(pca_pheno_merged$PC1, na.rm = TRUE)
+mean_pc2 <- mean(pca_pheno_merged$PC2, na.rm = TRUE)
+sd_pc2 <- sd(pca_pheno_merged$PC2, na.rm = TRUE)
+# You could also calculate for PC3 and PC4 if you want to filter on more dimensions
+# mean_pc3 <- mean(pca_pheno_merged$PC3, na.rm = TRUE)
+# sd_pc3 <- sd(pca_pheno_merged$PC3, na.rm = TRUE)
+
+# Define thresholds based on the SD_MULTIPLIER
+pc1_lower_sd_thresh <- mean_pc1 - (SD_MULTIPLIER * sd_pc1)
+pc1_upper_sd_thresh <- mean_pc1 + (SD_MULTIPLIER * sd_pc1)
+pc2_lower_sd_thresh <- mean_pc2 - (SD_MULTIPLIER * sd_pc2)
+pc2_upper_sd_thresh <- mean_pc2 + (SD_MULTIPLIER * sd_pc2)
+# pc3_lower_sd_thresh <- mean_pc3 - (SD_MULTIPLIER * sd_pc3) # If using PC3
+# pc3_upper_sd_thresh <- mean_pc3 + (SD_MULTIPLIER * sd_pc3) # If using PC3
+
+
+cat("Using SD Multiplier:", SD_MULTIPLIER, "\n")
+cat("PC1 Mean:", round(mean_pc1, 4), "SD:", round(sd_pc1, 4), 
+    "Bounds:", round(pc1_lower_sd_thresh, 4), "to", round(pc1_upper_sd_thresh, 4), "\n")
+cat("PC2 Mean:", round(mean_pc2, 4), "SD:", round(sd_pc2, 4), 
+    "Bounds:", round(pc2_lower_sd_thresh, 4), "to", round(pc2_upper_sd_thresh, 4), "\n")
+# cat("PC3 Mean:", round(mean_pc3, 4), "SD:", round(sd_pc3, 4), 
+#     "Bounds:", round(pc3_lower_sd_thresh, 4), "to", round(pc3_upper_sd_thresh, 4), "\n") # If using PC3
+
+
+# --- Filter to get individuals within these SD-based thresholds ---
+# Modify this filter if you decide to use PC3/PC4 as well
+core_cluster_individuals_sd <- pca_pheno_merged %>%
+  filter(PC1 >= pc1_lower_sd_thresh & PC1 <= pc1_upper_sd_thresh &
+         PC2 >= pc2_lower_sd_thresh & PC2 <= pc2_upper_sd_thresh)
+         # & PC3 >= pc3_lower_sd_thresh & PC3 <= pc3_upper_sd_thresh) # Add if using PC3
+
+# Check how many individuals are in this core cluster
+num_core_sd <- nrow(core_cluster_individuals_sd)
+num_excluded_sd <- nrow(pca_pheno_merged) - num_core_sd # pca_pheno_merged should have 1196
+cat("Number of individuals selected for the super-core cluster (within +/-", SD_MULTIPLIER, "SD for PC1 & PC2):", num_core_sd, "\n")
+cat("Number of individuals excluded:", num_excluded_sd, "\n")
+
+
+# --- Visualize the PCA plot with the SD-defined core area and selected individuals ---
+# Add a column to pca_pheno_merged to indicate if they are in the core cluster
+pca_pheno_merged$InSuperCore_SD <- ifelse(
+  (pca_pheno_merged$PC1 >= pc1_lower_sd_thresh & pca_pheno_merged$PC1 <= pc1_upper_sd_thresh &
+   pca_pheno_merged$PC2 >= pc2_lower_sd_thresh & pca_pheno_merged$PC2 <= pc2_upper_sd_thresh),
+  # Add PC3 condition here if you used it in the filter above
+  "Super-Core", "Excluded"
+)
+pca_pheno_merged$InSuperCore_SD <- factor(pca_pheno_merged$InSuperCore_SD, levels = c("Super-Core", "Excluded"))
+
+
+# Plot PC1 vs PC2, highlighting the SD-selected super-core cluster and showing the SD box
+p_pc1_pc2_sd_highlight_supercore <- ggplot(pca_pheno_merged, aes(x = PC1, y = PC2, color = InSuperCore_SD)) +
+  geom_point(alpha = 0.7, size = 1.5) +
+  scale_color_manual(values = c("Super-Core" = "red", "Excluded" = "grey")) + # Changed core color for emphasis
+  geom_rect(aes(xmin = pc1_lower_sd_thresh, xmax = pc1_upper_sd_thresh, 
+                ymin = pc2_lower_sd_thresh, ymax = pc2_upper_sd_thresh),
+            fill = "transparent", color = "darkred", linetype = "dashed", linewidth = 0.8, # Updated to linewidth
+            inherit.aes = FALSE) + # Added inherit.aes = FALSE
+  labs(title = paste("PCA with Super-Core Cluster (PC1 & PC2 within +/-", SD_MULTIPLIER, "SD)"),
+       subtitle = paste(num_core_sd, "individuals in super-core,", num_excluded_sd, "excluded"),
+       x = "Principal Component 1",
+       y = "Principal Component 2",
+       color = "Subgroup Status") +
+  theme_minimal() +
+  guides(color = guide_legend(override.aes = list(size=3))) 
+
+# Add phenotype coloring as well for context
+p_pc1_pc2_sd_pheno_shape_supercore <- ggplot(pca_pheno_merged, aes(x = PC1, y = PC2, color = EYE_COLOR_FACTOR, shape = InSuperCore_SD)) +
+  geom_point(alpha = 0.7, size = 2) + 
+  scale_shape_manual(values = c("Super-Core" = 16, "Excluded" = 4)) + 
+  geom_rect(aes(xmin = pc1_lower_sd_thresh, xmax = pc1_upper_sd_thresh, 
+                ymin = pc2_lower_sd_thresh, ymax = pc2_upper_sd_thresh),
+            fill = "transparent", color = "darkred", linetype = "dashed", linewidth = 0.8, # Updated to linewidth
+            inherit.aes = FALSE) + 
+  labs(title = paste("PCA with Super-Core Cluster (PC1 & PC2 within +/-", SD_MULTIPLIER, "SD)"),
+       subtitle = paste(num_core_sd, "individuals in super-core,", num_excluded_sd, "excluded. Colored by Phenotype."),
+       x = "Principal Component 1",
+       y = "Principal Component 2",
+       color = "Eye Color",
+       shape = "Subgroup Status") +
+  theme_minimal() +
+  guides(color = guide_legend(override.aes = list(size=3)),
+         shape = guide_legend(override.aes = list(size=3)))
+
+# Print the plots
+print(p_pc1_pc2_sd_highlight_supercore)
+ggsave(paste0("pca_1196ind_pc1_pc2_sd_",SD_MULTIPLIER,"_supercore_highlighted.png"), plot = p_pc1_pc2_sd_highlight_supercore, width = 9, height = 7, dpi = 300)
+
+print(p_pc1_pc2_sd_pheno_shape_supercore)
+ggsave(paste0("pca_1196ind_pc1_pc2_sd_",SD_MULTIPLIER,"_supercore_pheno_shape.png"), plot = p_pc1_pc2_sd_pheno_shape_supercore, width = 10, height = 7, dpi = 300)
+
+
+```
+
+```{r}
+
+# --- Save the list of individuals for the "Super-Core" subgroup ---
+# Ensure 'core_cluster_individuals_sd' is the dataframe resulting from your chosen SD_MULTIPLIER = 1.5
+core_individuals_to_keep_sd_list <- core_cluster_individuals_sd[, c("FID", "IID")]
+
+# Save this list to a file
+# The filename now explicitly includes "super_core" and the SD multiplier used
+output_list_filename <- paste0("gwas_super_core_sd", SD_MULTIPLIER, "_individuals_to_keep.txt")
+write.table(core_individuals_to_keep_sd_list, output_list_filename, 
+            row.names = FALSE, col.names = FALSE, quote = FALSE, sep = "\t")
+print(paste("List of SD-based super-core cluster individuals (", nrow(core_individuals_to_keep_sd_list) ," rows) saved to '", output_list_filename, "' for SD_MULTIPLIER =", SD_MULTIPLIER))
+
+```
+
+
+
