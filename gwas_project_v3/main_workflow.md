@@ -1785,10 +1785,11 @@ Biological Background for rs12913832 (HERC2/OCA2 region):
 rs12913832 G allele: This is the ancestral allele and is strongly associated with brown eyes. It's linked to higher melanin production.
 rs12913832 A allele: This is the derived allele and is strongly associated with blue eyes (and generally lighter eye/hair/skin pigmentation). It's linked to reduced melanin production due to its effect on OCA2 expression.
 
-*   Examine the bar plot (`pheno_dist_plot`). Does it show a clear trend? For a typical HERC2/OCA2 SNP where the minor allele is associated with lighter eyes (e.g., 'A' allele in rs12913832 is linked to blue eyes):
- *  Genotype 0 (Count of 'A' = 0): This means the genotype is GG. These individuals should predominantly have darker eyes (Brown/Hazel).
+*   Examine the bar plot (`pheno_dist_plot`). Does it show a clear trend? For a typical HERC2/OCA2 SNP where the minor allele is associated with lighter eyes (e.g., 'A' allele in rs12913832 is linked to brown eyes):
+ *  Genotype 0 (Count of 'A' = 0): This means the genotype is GG. These individuals should predominantly have lighter eyes (Blue, Blue/Green, potentially Green).
  *  Genotype 1 (Count of 'A' = 1): This means the genotype is GA. These individuals should have intermediate eye colors or a mix, often Hazel/Green, some Brown, some Blue/Green.    The effect is somewhat co-dominant/additive.
- *  Genotype 2 (Count of 'A' = 2): This means the genotype is AA. These individuals should predominantly have lighter eyes (Blue, Blue/Green, potentially Green).
+ *  Genotype 2 (Count of 'A' = 2): This means the genotype is AA. These individuals should predominantly have darker eyes (Brown/Hazel).
+
 *   The boxplot (`pheno_box_plot`) will show if the mean/median of your 0-3 eye color score changes across the genotype groups.
 *   **In your report:** Present one of these plots. Describe the observed pattern and how it aligns (or doesn't) with the SNP's known role or the GWAS finding. Discuss if the effect appears additive.
 
@@ -1796,6 +1797,27 @@ This analysis is relatively quick, directly uses your data, provides visual insi
 
 If you want to do the conditional analysis instead/additionally, let me know, and I can detail those steps. But the phenotype distribution plot is a very good, straightforward choice.
 
-**Esther comments**
+**esther being crazy**
+Your Data:
+Your .bim file for rs12913832: 15 rs12913832 0 28365618 A G
+This means A1 = 'A', A2 = 'G'.
+PLINK's --recode A output (.raw file): The column rs12913832_A counts the number of 'A' alleles (your A1).
+Count of 'A' = 0 means genotype is GG.
+Count of 'A' = 1 means genotype is AG.
+Count of 'A' = 2 means genotype is AA.
+Your Phenotype Plot (Eye Color Distribution by Genotype at rs12913832, where x-axis is "Count of Allele: A"):
+X-axis = 0 (GG genotype): Your plot shows mostly Blue eyes.
+X-axis = 1 (AG genotype): Your plot shows mostly Brown and Hazel eyes.
+X-axis = 2 (AA genotype): Your plot shows almost exclusively Brown eyes.
+Interpretation of YOUR Plot Based on CORRECTED Biology:
+Genotype GG (0 'A's counted by PLINK): Associated with blue eyes in your data. This MATCHES the correct biology (GG = blue).
+Genotype AG (1 'A' counted by PLINK): Associated with brown/hazel (darker/intermediate) eyes in your data. This MATCHES the correct biology (AG = brown/intermediate).
+Genotype AA (2 'A's counted by PLINK): Associated with brown eyes in your data. This MATCHES the correct biology (AA = brown).
+Conclusion: YOUR PLOT IS CORRECT AND PERFECTLY CONSISTENT WITH THE ESTABLISHED BIOLOGY OF rs12913832.
 
-When looking at the .raw data in R, we see the opposite distribution compared to the known biology of HERC2/OCA2. After chekcing if our data was correctly being read and genotypes counted correctly, which they were, it seems that the problem lays elsewhere. A common cause for this is what is called a Strand Flip. 
+For the most significant SNP from our super-core GWAS, rs12913832 (located in an intron of the HERC2 gene and a known regulatory element for OCA2), we examined the distribution of our 4-category eye color phenotype across its genotypes. Genotypes were determined by counting the 'A' allele (A1 in our .bim file for this SNP).
+Individuals with zero copies of the 'A' allele (genotype GG) predominantly exhibited blue eyes (Category 0).
+Heterozygous individuals (AG; one copy of the 'A' allele) showed a higher proportion of hazel and brown eyes (Categories 2 and 3).
+Individuals homozygous for the 'A' allele (AA; two copies) almost exclusively had brown eyes (Category 3).
+(Insert your plot here)
+This observed pattern directly aligns with the established biological understanding of rs12913832, where the G allele is associated with reduced OCA2 expression and lighter eye colors (blue), and the A allele is associated with higher OCA2 expression and darker eye colors (brown). Our findings for this SNP strongly support its major role in eye color determination and validate the general coherence of our phenotype and genotype data for this key locus.
