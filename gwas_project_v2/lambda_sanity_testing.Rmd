@@ -1,0 +1,96 @@
+---
+title: "Untitled"
+author: "Esther Helga"
+date: "2025-05-23"
+output: html_document
+---
+
+```{r}
+
+# ---------  user parameters -------------
+assoc_file <- "gwas_eyecolor_CORE_SUBGROUP_6pcs_sex.assoc.linear"
+chip_file  <- "iid_to_chip.txt"                # IID,Chip
+pca_file   <- "gwas_core_1124_pca_20pcs.eigenvec"
+maf_file   <- "final_analysis_cohort_hwe_filtered.frq"      # CHR,SNP,MAF
+# ----------------------------------------
+
+suppressPackageStartupMessages({
+  library(data.table); library(dplyr); library(ggplot2)
+})
+
+## utility
+lambdaGC <- function(chi2) median(chi2, na.rm = TRUE) / qchisq(0.5, 1)
+
+## 1.  association results -------------------
+a <- fread(assoc_file)[TEST == "ADD"]
+a[, CHI2 := STAT^2]
+overall_lambda <- lambdaGC(a$CHI2)
+cat("Overall lambda =", round(overall_lambda, 3), "\n")
+
+## 2.  meta-data -----------------------------
+chips <- fread(chip_file, col.names = c("IID", "Chip"))
+pcs   <- fread(pca_file , col.names = c("FID", "IID", paste0("PC", 1:20)))
+maf   <- fread(maf_file , select = c("SNP", "MAF"))
+
+a <- merge(a, maf, by = "SNP", all.x = TRUE)
+
+## 3.  lambda by MAF decile ------------------
+a[, maf_bin := cut(MAF,
+                   breaks = quantile(MAF, probs = seq(0, 1, .1), na.rm = TRUE),
+                   include.lowest = TRUE, labels = paste0("D", 1:10))]
+lambda_maf <- a[, .(lambda = lambdaGC(CHI2)), by = maf_bin]
+print(lambda_maf)
+
+## 4.  lambda per chromosome -----------------
+lambda_chr <- a[, .(lambda = lambdaGC(CHI2)), by = CHR]
+print(lambda_chr)
+
+## 5.  overall QQ plot -----------------------
+set.seed(1)
+qq_sample <- a[sample(.N, min(5e4, .N))]           # 50 k random SNPs
+pvals <- sort(qq_sample$P)
+
+qq <- data.frame(               # ---- NEW tiny data-frame ----
+  expected = -log10(ppoints(length(pvals))),
+  observed = -log10(pvals)
+)
+
+ggplot(qq, aes(expected, observed)) +
+  geom_point(size = .6) +
+  geom_abline(slope = 1, intercept = 0, colour = "red") +
+  labs(title = paste("Overall QQ (λ =",
+                     round(overall_lambda, 3), ")"),
+       x = "Expected –log10 P", y = "Observed –log10 P")
+
+## 6.  correlation PCs ↔ phenotype -----------
+pheno <- fread("gwas_pheno_1196.txt",
+               col.names = c("FID", "IID", "Pheno"))
+pheno_pcs <- merge(pheno, pcs, by = c("FID", "IID"))
+
+for (i in 1:6) {
+  r2 <- summary(
+          lm(Pheno ~ get(paste0("PC", i)), pheno_pcs)
+        )$r.squared
+  cat("PC", i, " vs phenotype  R² =", round(r2, 4), "\n")
+}
+
+
+
+```
+
+```{r}
+
+# lambda per chip
+fam  <- fread("final_analysis_cohort_hwe_filtered.fam",
+              col.names = c("FID","IID",paste0("x",1:4)))
+fam  <- merge(fam[,.(FID,IID)], chips, by="IID")
+setkey(fam, IID)
+
+# JOIN sample chip onto each SNP's carrier list is expensive; instead
+# rerun the GWAS once per chip if you really want to be thorough:
+#   plink --keep chip_GSA.txt --linear ...
+
+
+```
+
+

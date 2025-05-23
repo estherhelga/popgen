@@ -1,9 +1,10 @@
 ---
 title: "Untitled"
 author: "Esther Helga"
-date: "2025-05-16"
+date: "2025-05-23"
 output: html_document
 ---
+
 
 ```{r}
 
@@ -19,15 +20,11 @@ library(ggplot2) # For potentially customizing plots further if desired, though 
 ```{r}
 
 # --- 1. Load GWAS Results ---
-# gwas_results_file <- "gwas_eyecolor_linear_4pcs_sex.assoc.linear"
-# gwas_data <- read.table(gwas_results_file, header = TRUE, stringsAsFactors = FALSE)
-
-gwas_results_file <- "gwas_eyecolor_CORE_SUBGROUP_6pcs_sex.assoc.linear"
+gwas_results_file <- "gwas_cond_rs12913832.assoc.linear"
 gwas_data <- read.table(gwas_results_file, header = TRUE, stringsAsFactors = FALSE)
 
-# Check the header and first few rows to confirm column names
-head(gwas_data)
-colnames(gwas_data) # Expected columns: CHR, SNP, BP, A1, TEST, NMISS, BETA, STAT, P
+## keep only the additive 1-df test
+gwas_data <- subset(gwas_data, TEST == "ADD")
 
 ```
 
@@ -80,16 +77,16 @@ print(paste("Genomic Inflation Factor (Lambda):", round(lambda, 3)))
 
 # Create QQ plot using qqman
 # The `qq()` function from qqman
-png("gwas_qqplot_20pcs.png", width = 6, height = 6, units = "in", res = 300) # Save plot
+png("gwas_qqplot_gwas_cond_rs12913832.png", width = 6, height = 6, units = "in", res = 300) # Save plot
 qq(gwas_data_filtered$P, 
-   main = paste0("QQ Plot of Eye Color GWAS P-values (Lambda = ", round(lambda, 3), ")"),
+   main = paste0("QQ Plot of Eye Color Conditional Analysis (rs12913832) GWAS P-values (Lambda = ", round(lambda, 3), ")"),
    cex.main = 1.2, # Adjust title size
    cex.axis = 1,   # Adjust axis label size
    cex.lab = 1,    # Adjust axis title size
    col = "blue4"   # Color of points
    )
 dev.off()
-print("QQ plot saved as gwas_qqplot_20pcs.png")
+print("QQ plot saved as gwas_qqplot_gwas_cond_rs12913832.png")
 
 ```
 
@@ -104,9 +101,9 @@ suggestive_sig_line <- -log10(1e-5)   # Common suggestive significance line
 
 # Create Manhattan plot using qqman
 # The `manhattan()` function
-png("gwas_manhattan_plot_20pcs.png", width = 12, height = 6, units = "in", res = 300) # Save plot
+png("gwas_manhattan_plot_gwas_cond_rs12913832.png", width = 12, height = 6, units = "in", res = 300) # Save plot
 manhattan(gwas_data_filtered, 
-          main = "Manhattan Plot for Eye Color GWAS",
+          main = "Manhattan Plot for Eye Color Conditional Analysis (rs12913832) GWAS",
           chr = "CHR", 
           bp = "BP", 
           snp = "SNP", 
@@ -120,25 +117,68 @@ manhattan(gwas_data_filtered,
           ylim = c(0, max(-log10(gwas_data_filtered$P), na.rm=TRUE) + 1) # Ensure y-axis includes highest peak
           ) 
 dev.off()
-print("Manhattan plot saved as gwas_manhattan_plot20.png")
+print("Manhattan plot saved as gwas_cond_rs12913832.png")
 
 ```
-
 
 ```{r}
 
 # Optional: Identify and list top SNPs
 # Sort by P-value and show the top N hits
 top_hits <- gwas_data_filtered %>% 
-              arrange(P) %>% 
-              head(20) # Show top 20 hits
+               arrange(P) %>% 
+               head(50) # Show top 20 hits
 
 print("Top 20 GWAS hits:")
 print(top_hits[, c("SNP", "CHR", "BP", "A1", "BETA", "STAT", "P")])
-
+ 
 # Further annotation of top hits (e.g., finding nearby genes) would be a next step
 # using online tools like LocusZoom, FUMA, or by querying Ensembl/UCSC with positions.
 
 ```
 
+```{r}
+
+# ---------- user options ----------
+zoom_chr   <- 15      # set to 1:22, 23==X, 24==Y, etc.; or a vector c(15,16)
+point_size <- 0.6     # make dots lighter/heavier if needed
+# -----------------------------------
+
+# ---------- 4b. zoomed-in plot ----------
+zoom_data <- subset(gwas_data_filtered, CHR %in% zoom_chr)
+
+png("manhattan_zoom_chr15.png", width = 12, height = 4, units = "in", res = 300)
+manhattan(zoom_data,
+          chr = "CHR", bp = "BP", p = "P", snp = "SNP",
+          col = "steelblue4",
+          cex = point_size,
+          genomewideline = -log10(5e-8),
+          suggestiveline = -log10(1e-5),
+          ylim = c(0, max(-log10(zoom_data$P), na.rm = TRUE) + 1),
+          main = paste0("Zoom on chr ", paste(zoom_chr, collapse = ",")))
+dev.off()
+cat("Saved zoom Manhattan: manhattan_zoom_chr15.png\n")
+
+
+```
+
+```{r}
+
+# crop at 50
+png("manhattan_cropped.png", 12, 6, "in", res = 300)
+manhattan(gwas_data_filtered,
+          ylim = c(0, 50),                           # cap
+          genomewideline = -log10(5e-8),
+          suggestiveline = -log10(1e-5),
+          col = c("skyblue3","grey40"),
+          main = "Manhattan plot (y-axis truncated at –log10P = 50)")
+dev.off()
+
+
+```
+
+
+
+
+```
 

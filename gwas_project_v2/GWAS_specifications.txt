@@ -1,0 +1,86 @@
+GWAS 1 (note: calculated using wrong PC values): 
+
+INFILE: final_analysis_cohort_hwe_filtered
+
+OUTFILE: gwas_eyecolor_linear_4pcs_sex
+
+COVARIATES: 4 PCs, Sex
+
+PCA SD filtering: 6SD
+
+INDIVIDUALS = 1194 
+
+Results: 
+
+Lambda = 1.039
+
+Signififcant SNP = rs12913832
+
+
+-------------------
+
+
+GWAS 2 (note: calculated using wrong PC values):
+
+INFILE: final_analysis_cohort_hwe_filtered
+
+OUTFILE: gwas_eyecolor_linear_10pcs_sex
+
+COVARIATES: 10 PCs, Sex
+
+PCA SD filtering: 6SD
+
+INDIVIDUALS: 1194
+
+Results:
+
+Lambda = 0.995
+
+Signififcant SNP = rs12913832
+
+
+-------------------
+
+
+GWAS 3:
+
+INFILE: final_analysis_cohort_hwe_filtered
+
+OUTFILE: gwas_eyecolor_linear_correct_7pcs_sex
+
+COVARIATES: 7 PCs, Sex
+
+PCA SD filtering: 6SD
+
+INDIVIDUALS: 1194
+
+VARIANTS: 949579 
+
+Results:
+
+Lambda = 0.993
+
+Signififcant SNP = rs12913832
+
+
+-------------------
+
+
+GWAS 4:
+
+INFILE: gwas_core_1124
+
+OUTFILE: gwas_eyecolor_CORE_SUBGROUP_6pcs_sex
+
+COVARIATES: 6 PCs, Sex
+
+PCA SD filtering: 2SD
+
+INDIVIDUALS: 1124
+
+Results:
+
+Lambda = 0.999
+
+Signififcant SNP = rs12913832
+

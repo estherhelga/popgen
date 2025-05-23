@@ -1753,16 +1753,14 @@ You need a file containing the FID, IID, phenotype score, and the genotype (0, 1
 
 1.  **Create a list file for PLINK containing just the top SNP:**
  
-    # In your terminal
-    # Replace rsXXXXXX with your actual TOP_GWAS_SNP_ID
+
     echo "rs12913832" > top_snp_for_recode.txt 
   
 
 2.  **Use PLINK to recode genotypes for this SNP into an additive format (0, 1, 2) and output to a text file:**
     The input bfile should be your final QCed super-core dataset.
    
-    # Replace ${N_super_core} with the actual number (e.g., 897)
-    # Replace rsXXXXXX with your actual TOP_GWAS_SNP_ID
+
     GWAS_INPUT_BFILE_BASENAME="gwas_core_1124"
     TOP_SNP_ID_VAR="rs12913832" 
 
@@ -1797,7 +1795,7 @@ This analysis is relatively quick, directly uses your data, provides visual insi
 
 If you want to do the conditional analysis instead/additionally, let me know, and I can detail those steps. But the phenotype distribution plot is a very good, straightforward choice.
 
-**esther being crazy**
+**discussion**
 Your Data:
 Your .bim file for rs12913832: 15 rs12913832 0 28365618 A G
 This means A1 = 'A', A2 = 'G'.
@@ -1821,3 +1819,39 @@ Heterozygous individuals (AG; one copy of the 'A' allele) showed a higher propor
 Individuals homozygous for the 'A' allele (AA; two copies) almost exclusively had brown eyes (Category 3).
 (Insert your plot here)
 This observed pattern directly aligns with the established biological understanding of rs12913832, where the G allele is associated with reduced OCA2 expression and lighter eye colors (blue), and the A allele is associated with higher OCA2 expression and darker eye colors (brown). Our findings for this SNP strongly support its major role in eye color determination and validate the general coherence of our phenotype and genotype data for this key locus.
+
+
+
+# Additional Analsysi D.2: Conditional analysis using rs12913832 as a covariate to look for *secondary* hits
+
+Since our only major hit was the rs12913832 SNP, we desiced to run a conditional analysis to see if there were any secondary hits hidden by the string signlar from rs12913832. 
+
+plink \
+  --bfile   final_analysis_cohort_hwe_filtered        \  # 1 196 ind · 949 579 SNPs
+  --pheno gwas_pheno_1196.txt \
+  --condition rs12913832                              \  # absorb the big effect
+  --linear                                            \  # same model as before
+  --covar   gwas_covariates_7pcs_sex_1194.txt         \  # 7 PCs + sex (or whatever file you used)
+  --allow-no-sex                                      \
+  --out     gwas_cond_rs12913832
+
+
+  plink \
+  --bfile final_analysis_cohort_hwe_filtered \
+  --pheno gwas_pheno_1196.txt \
+  --condition rs12913832 \
+  --linear \
+  --covar gwas_covariates_7pcs_sex_1194.txt \
+  --allow-no-sex \
+  --out gwas_cond_rs12913832
+
+
+*Results*
+
+no new loci were significant - lambda = 1
+
+After conditioning, tthe most significant conditional SNP was rs1800407 on chromosome 15 (P = 1.753e-07, −log₁₀P ≈ 6.7), well below the genome-wide threshold and >190 orders of magnitude smaller than the original HERC2/OCA2 spike, demonstrating that every previously inflated SNP was tagging rs12913832 through LD.
+
+Because rs12913832 in the HERC2/OCA2 enhancer explains the bulk of the eye-colour variation, we repeated the GWAS with this SNP included as a covariate.
+After conditioning, the genomic-control factor dropped to λGC = 1.00 and the QQ plot followed the null expectation throughout (Figure X).
+No SNPs reached the conventional genome-wide threshold of 5 × 10⁻⁸ (Figure gwas_manhattan_plot_gwas_cond_rs12913832.png), indicating that the primary signal on chromosome 15 fully accounts for the association landscape in this cohort. 

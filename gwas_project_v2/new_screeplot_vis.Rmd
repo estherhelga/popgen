@@ -7,7 +7,7 @@ output: html_document
 
 ```{r}
 
-eigenvalues_new <- read.table("gwas_core_1124_pca_20pcs.eigenval", header = FALSE)$V1
+eigenvalues_new <- read.table("gwas_1196_pca_30pcs.eigenval", header = FALSE)$V1
 variance_explained_new <- eigenvalues_new / sum(eigenvalues_new) * 100 #this gives us the porpotional variance in relation to the 30 PCs calculated and not the total
 pc_numbers_new <- 1:length(eigenvalues_new)
 scree_data_new <- data.frame(PC = pc_numbers_new, VarianceExplained = variance_explained_new)
