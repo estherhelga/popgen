@@ -80,7 +80,7 @@ print(paste("Genomic Inflation Factor (Lambda):", round(lambda, 3)))
 png("gwas_qqplot_gwas_cond_rs12913832.png", width = 6, height = 6, units = "in", res = 300) # Save plot
 qq(gwas_data_filtered$P, 
    main = paste0("QQ Plot of Eye Color Conditional Analysis (rs12913832) GWAS P-values (Lambda = ", round(lambda, 3), ")"),
-   cex.main = 1.2, # Adjust title size
+   cex.main = 0.8, # Adjust title size
    cex.axis = 1,   # Adjust axis label size
    cex.lab = 1,    # Adjust axis title size
    col = "blue4"   # Color of points

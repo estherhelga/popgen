@@ -581,8 +581,8 @@ p_chip_bounds <- ggplot(pca_with_metadata, aes(x = PC1, y = PC2, color = ChipTyp
   geom_vline(xintercept = c(pc1_lower_bound, pc1_upper_bound), linetype = "dashed", color = "darkgrey") +
   geom_hline(yintercept = c(pc2_lower_bound, pc2_upper_bound), linetype = "dashed", color = "darkgrey") +
   labs(title = "PCA: PC1 vs PC2 by Chip Type with +/- 6SD Outlier Bounds",
-       x = paste0("PC1 (", pc1_var, "% variance)"), 
-       y = paste0("PC2 (", pc2_var, "% variance)")) +
+       x = paste0("PC1"), 
+       y = paste0("PC2")) +
   theme_bw() +
   guides(color = guide_legend(title = "Chip Platform"))
 

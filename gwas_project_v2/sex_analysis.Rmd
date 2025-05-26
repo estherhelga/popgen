@@ -44,7 +44,7 @@ print(paste("Number of samples with NA ChipType after merge:", sum(is.na(sexchec
 # In an earlier R chunk, after creating sexcheck_data_merged
 non_omni_data <- sexcheck_data_merged %>% filter(ChipType != "chip_OmniExpress")
 hist(non_omni_data$F, breaks = 30, 
-     main = "F-statistic for Non-OmniExpress Samples", xlab = "F-statistic")
+     main = "F-statistic distribution (OmniExpress Samples removed) ", xlab = "F-statistic")
 abline(v = 0.2, col = "blue", lty = 2) # Your current female_F_max
 abline(v = 0.90, col = "blue", lty = 2) # Your current male_F_min
 

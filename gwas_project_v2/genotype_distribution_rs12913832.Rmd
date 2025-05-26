@@ -33,7 +33,7 @@ pheno_file_for_gwas_run <- "gwas_pheno_1196.txt"
 
 # 4. The FAM file corresponding to the --bfile used for --recode A (i.e., gwas_core_1124.fam)
 # This is to get the exact list of 1124 individuals if needed for filtering phenotype.
-fam_file_of_gwas_cohort <- "gwas_core_1124.fam"
+fam_file_of_gwas_cohort <- "final_analysis_cohort_hwe_filtered.fam"
 
 ```
 
@@ -108,8 +108,8 @@ ggsave(paste0("pheno_dist_by_genotype_", TOP_SNP_ID, ".png"), plot = pheno_dist_
 
 # Optional: Boxplot of quantitative score by genotype
 pheno_box_plot <- ggplot(merged_data_top_snp_clean, aes(x = GenotypeFactor, y = EYE_COLOR_SCORE, fill = GenotypeFactor)) +
-  geom_boxplot(alpha=0.7, outlier.shape = NA) + # Hide outliers from boxplot itself
-  geom_jitter(width = 0.2, alpha = 0.4, height = 0.1, size=1.5) + # Show individual points with some jitter
+  geom_boxplot(alpha=0.6, outlier.shape = NA) + # Hide outliers from boxplot itself
+  geom_jitter(width = 0.2, alpha = 0.2, height = 0.1, size=1) + # Show individual points with some jitter
   labs(title = paste("Eye Color Score by Genotype at", TOP_SNP_ID),
        x = paste("Genotype at", TOP_SNP_ID, "(Count of Allele:", gsub(paste0(TOP_SNP_ID,"_"), "", genotype_col_name), ")"),
        y = "Eye Color Score (0-3)") +
@@ -120,7 +120,7 @@ pheno_box_plot <- ggplot(merged_data_top_snp_clean, aes(x = GenotypeFactor, y = 
         plot.title = element_text(size=16, face="bold"))
       
 print(pheno_box_plot)
-ggsave(paste0("pheno_boxplot_by_genotype_", TOP_SNP_ID, ".png"), plot = pheno_box_plot, width = 7, height = 6, dpi = 300)
+ggsave(paste0("pheno_boxplot_by_genotype_1196", TOP_SNP_ID, ".png"), plot = pheno_box_plot, width = 7, height = 6, dpi = 300)
 
 # Table of counts
 cat("\nCounts of Eye Color by Genotype for SNP:", TOP_SNP_ID, "\n")

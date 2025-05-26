@@ -133,7 +133,7 @@ print("Manhattan plot saved as gwas_manhattan_plot_filtered_6SD_7pcs_sex_GWAS.pn
 # Sort by P-value and show the top N hits
 top_hits <- gwas_data_filtered %>% 
                arrange(P) %>% 
-               head(50) # Show top 20 hits
+               head(100) # Show top 20 hits
 
 print("Top 20 GWAS hits:")
 print(top_hits[, c("SNP", "CHR", "BP", "A1", "BETA", "STAT", "P")])
@@ -165,8 +165,62 @@ manhattan(zoom_data,
 dev.off()
 cat("Saved zoom Manhattan: manhattan_zoom_chr15.png\n")
 
+```
+
+```{r}
+
+
+# ---------- user choices ----------
+zoom_chr   <- 15
+point_size <- 0.6
+hl_colour  <- "firebrick"
+#
+# pick your window (here: ±1 Mb around the most significant SNP on the chr)
+lead       <- with(subset(gwas_data_filtered, CHR == zoom_chr),
+                   SNP[ which.min(P) ])          # ID of the lead SNP
+lead_bp    <- gwas_data_filtered$BP[ gwas_data_filtered$SNP == lead ]
+flank      <- 1e6                                # 1 Mb each side
+win_start  <- lead_bp - flank
+win_end    <- lead_bp + flank
+# -----------------------------------
+
+## 1) keep only SNPs inside the window
+roi <- subset(gwas_data_filtered,
+              CHR == zoom_chr & BP >= win_start & BP <= win_end)
+
+## 2) re-base bp so the left edge of the window = 1
+roi$BP0 <- roi$BP - min(roi$BP, na.rm = TRUE) + 1
+
+## 3) pick (or re-pick) the top hits you want to highlight
+top29 <- head(roi[ order(roi$P), "SNP" ], 29)
+
+## 4) draw the plot
+png("manhattan_zoom_chr15_window.png", width = 12, height = 4,
+    units = "in", res = 300)
+
+manhattan(roi,
+          chr = "CHR", bp = "BP0", p = "P", snp = "SNP",
+          highlight      = top29,
+          highlight.col  = hl_colour,
+          highlight.cex  = point_size * 1.4,
+          col            = "steelblue4",
+          cex            = point_size,
+          genomewideline = -log10(5e-8),
+          suggestiveline = -log10(1e-5),
+          ylim           = c(0, max(-log10(roi$P)) + 1),
+          xlab = paste0("Chr ", zoom_chr,
+                        " position (", format(win_start, big.mark = ","),
+                        "–", format(win_end, big.mark = ","), " bp)"),
+          main = paste0("Zoom on chr ", zoom_chr,
+                        " (±", flank/1e6, " Mb around ", lead, ")"))
+
+dev.off()
+cat("Saved zoom Manhattan: manhattan_zoom_chr15_window.png\n")
+
 
 ```
+
+
 
 ```{r}
 

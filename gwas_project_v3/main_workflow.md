@@ -1850,7 +1850,7 @@ plink \
 
 no new loci were significant - lambda = 1
 
-After conditioning, tthe most significant conditional SNP was rs1800407 on chromosome 15 (P = 1.753e-07, −log₁₀P ≈ 6.7), well below the genome-wide threshold and >190 orders of magnitude smaller than the original HERC2/OCA2 spike, demonstrating that every previously inflated SNP was tagging rs12913832 through LD.
+After conditioning, the most significant conditional SNP was rs1800407 on chromosome 15 (P = 1.753e-07, −log₁₀P ≈ 6.7), well below the genome-wide threshold and >190 orders of magnitude smaller than the original HERC2/OCA2 spike, demonstrating that every previously inflated SNP was tagging rs12913832 through LD.
 
 Because rs12913832 in the HERC2/OCA2 enhancer explains the bulk of the eye-colour variation, we repeated the GWAS with this SNP included as a covariate.
 After conditioning, the genomic-control factor dropped to λGC = 1.00 and the QQ plot followed the null expectation throughout (Figure X).
